@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>운동 기록</title>
+<meta name="theme-color" content="#1f4fd8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="운동기록">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1c2430;--mute:#6b7685;--main:#1f4fd8;--ok:#1a9e5c;--bad:#d64545;--line:#e3e8ef}
+@media (prefers-color-scheme:dark){:root{--bg:#12161d;--card:#1b222c;--text:#e9eef5;--mute:#93a0b1;--main:#6c93ff;--ok:#3dd68c;--bad:#ff7b7b;--line:#2a3340}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Malgun Gothic",system-ui,sans-serif;font-size:17px}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:6px 0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:18px;margin:0 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+input,textarea,select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);min-width:0}
+textarea{width:100%;min-height:130px;line-height:1.5}
+button{font:inherit;padding:10px 16px;border:0;border-radius:10px;background:var(--main);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--mute);border:1px solid var(--line)}
+button.bad{background:var(--bad)}
+.hint{color:var(--mute);font-size:14px;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mute);font-weight:600}
+.scroll{overflow-x:auto}
+.cm .sec{background:var(--bg);border-left:5px solid var(--main);border-radius:10px;padding:12px 16px;margin-bottom:12px}
+.cm .lab{font-weight:700;font-size:18px;color:var(--main);margin-bottom:6px}
+.cm ul{margin:0;padding-left:20px}
+.cm li{margin:6px 0;line-height:1.7;font-size:17px}
+.up{color:var(--ok);font-weight:700}.dn{color:var(--bad);font-weight:700}
+.chip{display:inline-block;padding:2px 10px;margin:2px 4px 2px 0;border-radius:999px;background:var(--bg);border:1px solid var(--line);font-size:14px;color:var(--mute)}
+.chip.low{background:var(--main);border-color:var(--main);color:#fff}
+.detail{padding:10px 4px 14px;border-bottom:1px solid var(--line)}
+.dh{font-size:16px;margin:14px 0 8px}
+.quote{background:var(--main);color:#fff;border-radius:14px;padding:16px 18px;margin:10px 0 14px;font-size:19px;line-height:1.6;font-weight:600;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.quote button{background:rgba(255,255,255,.2);padding:6px 12px;font-size:14px;white-space:nowrap}
+.log{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.me{font-size:14px;color:var(--mute)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:16px}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.cat{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.cat button{padding:7px 14px;border-radius:999px;background:var(--bg);color:var(--text);border:1px solid var(--line)}
+.cat button.on{background:var(--main);color:#fff;border-color:var(--main)}
+.exs{display:flex;flex-wrap:wrap;gap:6px}
+.exs button{background:var(--bg);color:var(--text);border:1px solid var(--line);padding:9px 12px}
+.exs button.sel{background:var(--ok);color:#fff;border-color:var(--ok)}
+.sl{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--bg)}
+.sl .nm{font-weight:700;font-size:17px}
+.ln{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px}
+.st{display:inline-flex;align-items:center;gap:3px}
+.st label{font-size:13px;color:var(--mute);margin-right:3px}
+.st button{padding:5px 11px;background:var(--card);color:var(--text);border:1px solid var(--line)}
+.st input{width:64px;text-align:center;padding:7px 4px}
+/* 부위 색 */
+.cat{gap:8px;margin-bottom:12px}
+.cat button{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;font-weight:700;font-size:16px;border-radius:999px;border:2px solid color-mix(in srgb,var(--c) 45%,var(--line));background:var(--card);color:var(--text)}
+.cat button::before{content:"";width:11px;height:11px;border-radius:50%;background:var(--c)}
+.cat button.on{background:var(--c);border-color:var(--c);color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--c) 40%,transparent)}
+.cat button.on::before{background:#fff}
+.cat button b{background:rgba(0,0,0,.2);border-radius:999px;padding:0 8px;font-size:13px}
+.exs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:12px;border-radius:14px;background:color-mix(in srgb,var(--c) 9%,var(--card));border:1px solid color-mix(in srgb,var(--c) 30%,var(--line))}
+.exs button{text-align:left;padding:12px;border-radius:10px;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));border-left:6px solid var(--c);font-size:15px;font-weight:600;line-height:1.3}
+.exs button:hover{background:color-mix(in srgb,var(--c) 14%,var(--card))}
+.exs button.sel{background:var(--c);color:#fff;border-color:var(--c)}
+.exs button.sel::before{content:"✓ "}
+.sl{border:1px solid color-mix(in srgb,var(--c) 35%,var(--line));border-left:7px solid var(--c);background:color-mix(in srgb,var(--c) 7%,var(--card));border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.sl .nm{font-size:19px}
+.ln{background:var(--card);border-radius:10px;padding:8px 10px;gap:14px}
+.st label{font-size:14px;font-weight:600}
+.st button{width:36px;height:36px;padding:0;font-size:20px;line-height:1;border-radius:9px}
+.st input{width:72px;font-size:19px;font-weight:700;padding:6px 4px}
+.pchip{display:inline-block;padding:3px 11px;margin:2px 5px 2px 0;border-radius:999px;font-size:13px;font-weight:700;color:#fff;background:var(--c);vertical-align:middle}
+.phead{font-weight:700;font-size:17px;margin:2px 0 10px}
+#psum{margin:6px 0 12px;line-height:2}
+.pickL{background:var(--bg);border-radius:14px;padding:12px}
+tr.warm td{opacity:.5}
+table tr:nth-child(even) td{background:color-mix(in srgb,var(--bg) 70%,transparent)}
+td b{font-weight:700}
+.card h2{font-size:19px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.seg button{padding:8px 13px;background:transparent;color:var(--mute);border:0;border-radius:0;font-size:14px;font-weight:700}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on.k-w{background:#d97706;color:#fff}
+.seg button.on.k-m{background:var(--c);color:#fff}
+.seg button.on.k-c{background:#0284c7;color:#fff}
+.ln.w{border:1px dashed #d97706}
+.ln.c{border:1px dashed #0284c7}
+textarea.memo{width:100%;min-height:54px;margin-top:10px;font-size:15px;background:var(--card);line-height:1.5}
+pre{white-space:pre-wrap;word-break:break-all;font-size:13px;max-height:260px;overflow:auto;background:var(--bg);padding:10px;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🏋️ 운동 기록</h1>
+<div class="me">나만의 운동 기록장 · 기록은 이 기기에만 저장돼요</div>
+<div class="quote"><span id="quote"></span><button id="nq">다른 말 ↻</button></div>
+
+<div class="card">
+  <h2>🏋️ 운동 고르기</h2>
+  <div class="row"><label class="hint">날짜</label><input type="date" id="date" style="flex:0 0 auto"><span class="hint">부위를 누르고 운동을 고르면 오른쪽에 담겨요. 무게·세트·횟수는 칸에 적거나 −／＋로 바꿔요.</span></div>
+  <div class="cols">
+    <div class="pickL">
+      <div class="cat" id="cats"></div>
+      <div class="exs" id="exs"></div>
+    </div>
+    <div>
+      <div class="phead" id="phead"></div>
+      <div id="picked"></div>
+      <div id="psum"></div>
+      <div class="row"><button id="pickSave">선택한 운동 기록하고 코멘트 받기</button><button class="ghost" id="pickClear">비우기</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>✍️ 글로 적어서 보내기</h2>
+  <div class="row"><button class="ghost" id="ex">예시 넣기</button></div>
+  <textarea id="inp" placeholder="편하게 적어요. 운동 이름 다음에 무게×횟수를 쓰면 돼요.&#10;&#10;스쿼트 60x8, 80x8웜업&#10;100x5&#10;100x8,6,5 - 3세트째 자세 무너짐&#10;레그컬 60 12x4&#10;러닝 3km 20분"></textarea>
+  <div class="row" style="margin-top:8px"><button id="save">기록하고 코멘트 받기</button></div>
+  <div class="hint">• 무게x횟수x세트 순서예요. 같은 무게·횟수는 자동으로 한 줄로 합쳐요. 안 적은 값은 빈칸으로 두고 메모에 "기록 없음"이 붙어요.<br>• 날짜는 위 "운동 고르기"의 날짜를 써요. 부위는 운동 이름으로 자동 판단하고, 처음 보는 운동은 한 번만 물어봐요.</div>
+</div>
+
+<div class="card" id="resCard" style="display:none">
+  <h2 id="resTitle"></h2>
+  <div class="scroll"><table id="resTable"></table></div>
+  <h2 style="margin-top:14px">코멘트·방향</h2>
+  <div class="cm" id="resCm"></div>
+  <div class="row" style="margin-top:10px"><button class="bad ghost" id="delDay">이 날 기록 지우기</button></div>
+</div>
+
+<div class="card">
+  <h2>지난 기록</h2>
+  <div id="days"></div>
+</div>
+
+<div class="card">
+  <h2>workout_log.csv</h2>
+  <div class="row">
+    <button id="dl">CSV 내려받기</button>
+    <button class="ghost" id="up">CSV 불러오기</button>
+    <input type="file" id="file" accept=".csv" style="display:none">
+  </div>
+  <div class="hint">기록은 이 컴퓨터의 브라우저에 자동 저장돼요. 가끔 "CSV 내려받기"로 파일을 따로 보관해 두면 안전해요. 열: 날짜, 운동, 부위, 무게kg, 세트, 횟수, 메모</div>
+  <details style="margin-top:8px"><summary class="hint">CSV 내용 미리보기</summary><pre id="csvPre"></pre></details>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const KEY="workout.free.v1",CM="코멘트·방향";
+let db={rows:[],map:{}};
+try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.rows)db=s}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+const pad=n=>String(n).padStart(2,"0");
+const fmt=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const addDays=(s,n)=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);return fmt(d)};
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LOWER=["하체"];
+const PRIORITY=""; // 우선 키우는 부위(없으면 "")
+const PC={"가슴":"#e5484d","등":"#3b82f6","하체":"#16a34a","어깨":"#f59e0b","이두":"#9b5de5","삼두":"#e0479e","복근":"#0fa3a3","러닝":"#64748b","유산소":"#64748b"};
+const pc=p=>PC[p]||"#94a3b8";
+const chipP=p=>p?`<span class="pchip" style="--c:${pc(p)}">${esc(p)}</span>`:"";
+const PARTS=["가슴","등","하체","어깨","이두","삼두","복근","러닝","유산소"];
+const RULES=[
+ [/러닝|런닝|달리기|조깅/,"러닝"],
+ [/사이클|자전거|걷기|수영|로잉|트레드밀|스텝밀/,"유산소"],
+ [/레그 ?레이즈|플랭크|크런치|니업|에어바이시클|싯업|복근/,"복근"],
+ [/스쿼트|레그|런지|스텝업|핵|이너타이|힙|카프|종아리|브릿지|스티프|불스/,"하체"],
+ [/삼두|트라이셉|푸시다운|푸쉬다운|킥백|스컬|익스텐션|라트익|체어 ?딥스/,"삼두"],
+ [/컬|바이셉|이두|프리처|해머/,"이두"],
+ [/풀업|친업|턱걸이|랫 ?풀|로우|풀다운|랙풀|티바|T바|루마니안|rdl|데드리프트|굿모닝/i,"등"],
+ [/ohp|오버헤드|숄더|밀리터리|사레레|레터럴|프론트 ?레이즈|리버스|벤트오버|펙덱|페이스 ?풀|업라이트|리어|^(?!.*(인클라인|디클라인|벤치)).*덤벨 ?프레스/i,"어깨"],
+ [/벤치|인클라인|디클라인|플라이|푸쉬업|푸시업|딥스|체스트|풀오버|케이블 ?크로스|스미스 ?바벨/,"가슴"]
+];
+const COMP=/스쿼트|데드리프트|벤치프레스|OHP|오버헤드|밀리터리|숄더프레스|레그 ?프레스|로우|풀업|친업|턱걸이|딥스/i;
+const ALIASES=[[/스퀏|스퀘트|스쿼(?!트)/g,"스쿼트"],[/이지\s*바\s*컬|ez\s*바\s*컬/gi,"EZ바컬"],[/벤치\s*후레스/g,"벤치프레스"],[/레그\s*후레스/g,"레그프레스"],[/브이\s*스쿼트/g,"V스쿼트"],[/루마니안\s*데드(?!리프트)/g,"루마니안 데드리프트"],[/불스스|불가리안\s*스플릿\s*스쿼트/g,"불가리안 스플릿 스쿼트"],[/턱걸이/g,"풀업"],[/케이블\s*푸[시쉬]다운/g,"케이블 푸쉬다운"],[/사이드\s*레터럴\s*레이즈/g,"사레레"],[/라트익/g,"라잉 트라이셉스 익스텐션"]];
+const aliasName=n=>{let x=String(n||"");ALIASES.forEach(a=>{x=x.replace(a[0],a[1])});return x.replace(/\s+/g," ").trim()};
+const ruleOnly=n=>{for(const r of RULES)if(r[0].test(n))return r[1];return null};
+const newPart=(old,ex)=>{
+  if(/^(대퇴사두|햄스트링|둔근|종아리)$/.test(old))return "하체";
+  if(old==="코어")return "복근";
+  if(old==="팔")return ruleOnly(ex)||"이두";
+  if(old==="유산소")return /러닝|런닝|달리기|조깅/.test(ex)?"러닝":"유산소";
+  return old};
+const band=p=>p==="하체"?[15,30]:[10,20];
+function partOf(n){
+  if(db.map[n])return db.map[n];
+  for(const [re,p] of RULES)if(re.test(n))return p;
+  let p=prompt("'"+n+"' 는 어느 부위인가요? 아래 중 하나를 적어 주세요.\n"+PARTS.join(" / "),"");
+  p=(p||"").trim();if(!PARTS.includes(p))p="기타";
+  db.map[n]=p;return p}
+
+// ---- 입력 해석 ----
+const KIND=/^(웜업|워밍업|쿨다운|쿨 다운)/;
+const kindOf=m=>{const x=String(m||"").match(KIND);if(!x)return "";const k=x[1].replace(" ","");return k==="워밍업"?"웜업":k};
+const isWarm=r=>!!kindOf(r.memo);
+const isCardio=r=>r.part==="유산소"||r.part==="러닝";
+const CARDIO=/러닝|런닝|달리기|조깅|사이클|자전거|걷기|수영|로잉|트레드밀|스텝밀/;
+const FILLER=/^(이후|그리고|그다음|다음|그 다음|마지막으로|끝으로|추가로|그 후|이어서)\s*/;
+const normName=n=>aliasName(n);
+function cardioOf(line){
+  const m=line.match(CARDIO);if(!m)return null;
+  const name=/러닝|런닝|달리기|조깅/.test(m[0])?"러닝":/사이클|자전거/.test(m[0])?"사이클":m[0];
+  const d=line.match(/(\d+(?:\.\d+)?)\s*(?:km|키로|킬로|k(?![a-zA-Z가-힣]))/i);
+  const t=line.match(/(\d+(?:\.\d+)?)\s*분(대)?/);
+  const parts=[];
+  if(d)parts.push(d[1]+"km");
+  if(t)parts.push(t[1]+"분"+(t[2]||""));
+  if(d&&t&&!t[2]&&+d[1]>0){const pm=+t[1]/+d[1];parts.push("평균 "+Math.floor(pm)+"'"+pad(Math.round((pm%1)*60))+'"/km')}
+  return {name,memo:parts.join(" · ")||line.trim()}}
+function cutMemo(s){
+  for(let i=0;i<s.length;i++){const c=s[i];
+    if(c==="#"||c==="("||c==="（")return i;
+    if(c==="-"&&i>0&&/\d/.test(s[i-1])&&!/[x\d]/i.test(s[i+1]||""))return i}
+  return -1}
+function parseData(str){
+  const idx=cutMemo(str);let memo="",data=str;
+  if(idx>=0){data=str.slice(0,idx);memo=str.slice(idx).replace(/^[#\-–\s]+/,"").trim()}
+  const d=data.replace(/[×*]/g,"x").replace(/([\d?])\s*[xX]\s*(?=[\d?]|\s|,|$)/g,"$1x").replace(/(^|[\s,])[xX]\s*(?=[\d?])/g,"$1x");
+  const T=[];let comma=false;
+  d.split(/([,\s]+)/).forEach(p=>{if(!p)return;if(/^[,\s]+$/.test(p)){comma=p.includes(",");return}T.push({t:p,comma});comma=false});
+  const val=x=>{if(x==null||x===""||x==="?"||x==="-")return null;const v=parseFloat(x);return isNaN(v)?null:v};
+  const XRE=/^([\d.]*|[?-])x([\d.]*|[?-])(?:x([\d.]*|[?-]))?(.*)$/i,BRE=/^(\d+(?:\.\d+)?)(.*)$/;
+  const groups=[];
+  const tail=(g,txt)=>{txt=(txt||"").trim();if(!txt)return;const k=kindOf(txt);if(k){g.kind=k;const r=txt.replace(KIND,"").trim();if(r)memo=(r+(memo?" "+memo:"")).trim()}else memo=(txt+(memo?" "+memo:"")).trim()};
+  let i=0;
+  while(i<T.length){
+    const tk=T[i];
+    const x=tk.t.match(XRE);
+    if(x){const g={kg:val(x[1]),rep:val(x[2]),set:val(x[3])==null?1:val(x[3]),fromX:1};tail(g,x[4]);groups.push(g);i++;continue}
+    const bn=tk.t.match(BRE);
+    if(bn){
+      const prev=groups[groups.length-1];
+      if(tk.comma&&prev&&prev.fromX&&!bn[2]){groups.push({kg:prev.kg,rep:+bn[1],set:1,fromX:1});i++;continue}
+      const nx=T[i+1]&&!T[i+1].comma?T[i+1].t.match(XRE):null;
+      if(nx&&!bn[2]){const g={kg:+bn[1],rep:val(nx[1]),set:val(nx[2])==null?1:val(nx[2])};tail(g,nx[4]);groups.push(g);i+=2;continue}
+      const run=[+bn[1]];let j=i+1;
+      while(j<T.length&&!T[j].comma&&BRE.test(T[j].t)&&!/[a-z가-힣]/i.test(T[j].t)&&!XRE.test(T[j].t)){run.push(+T[j].t);j++}
+      const g={kg:run[0],rep:run.length>1?run[1]:null,set:run.length>2?run[2]:1};tail(g,bn[2]);groups.push(g);i=j;continue}
+    // 숫자가 아닌 말: 태그(웜업 등)면 바로 앞 묶음에, 아니면 여기서부터 메모
+    const k=kindOf(tk.t);
+    if(k&&groups.length){groups[groups.length-1].kind=k;i++;continue}
+    memo=(T.slice(i).map(z=>z.t).join(" ")+(memo?" "+memo:"")).trim();break}
+  return {groups,memo}}
+function merge(rows){
+  const out=[];
+  rows.forEach(r=>{
+    const f=r.ex===CM?null:out.find(o=>o.date===r.date&&o.ex===r.ex&&o.kg===r.kg&&o.rep===r.rep&&kindOf(o.memo)===kindOf(r.memo));
+    if(f){f.set=(f.set||0)+(r.set||0);if(r.memo&&!(f.memo||"").includes(r.memo))f.memo=(f.memo?f.memo+" / ":"")+r.memo}
+    else out.push({...r})});
+  return out}
+
+// ---- 코멘트 ----
+const SEP=" | ";
+const FORM=/자세.*(무너|흐트|깨)|엉덩이.*(빠|뜨)|균형|흔들|딸려|폼.*(무너|깨)/;
+const dayRows=d=>db.rows.filter(r=>r.date===d&&r.ex!==CM);
+const topSet=rs=>rs.reduce((m,r)=>!m||(r.kg||0)>(m.kg||0)||((r.kg||0)===(m.kg||0)&&(r.rep||0)>(m.rep||0))?r:m,null);
+const d1=r=>(r.kg?r.kg+"kg×":"")+(r.rep==null?"?":r.rep)+"회";
+function makeComment(date){
+  const all=dayRows(date);
+  const rows=all.filter(r=>r.part&&!isWarm(r)&&!isCardio(r));
+  const warmRows=all.filter(isWarm),cardio=all.filter(isCardio);
+  const names=[...new Set(rows.map(r=>r.ex))];
+  const prior=db.rows.filter(r=>r.date<date&&r.ex!==CM&&r.part&&!isWarm(r)&&!isCardio(r));
+  const memos=all.map(r=>r.memo||"").join(" ");
+  const cardioTxt=cardio.map(c=>c.ex+" "+c.memo);
+  if(!rows.length)return ["근력 운동(작업 세트) 기록이 없어 비교할 변화가 없음","유산소: "+(cardioTxt.join(", ")||"기록 없음"),"다음 근력 운동에서 목표 무게를 정해 기록하기"];
+  const fbRow=rows.find(r=>FORM.test(r.memo||""));
+  const pain=/통증|아프|아팠|부상|뻐근|쑤|불편/.test(memos),fail=/실패|못 ?들|못 ?올|못했/.test(memos);
+  // 1줄
+  const warns=[];
+  if(pain)warns.push("⚠ 통증 언급 → 원인: 자세·워밍업 부족·과부하 가능 / 대처: 해당 종목 무게 10% 낮추고 통증 없는 범위만, 지속되면 중단 후 진료");
+  if(fail)warns.push("⚠ 실패 언급 → 원인: 무게 과다·휴식 부족 가능 / 대처: 다음엔 같은 무게로 마지막 세트를 1~3회 남기고 종료");
+  if(fbRow)warns.push("⚠ 자세 무너짐 언급("+fbRow.ex+") → 원인: 앞선 웜업·고중량 세트의 피로 누적, 코어·둔근 힘 부족, 무게 과다 가능 / 대처: 웜업을 줄이고 세트 사이 휴식을 늘리고, 엉덩이가 빠지기 시작하면 그 세트에서 종료");
+  const l1=[];
+  names.forEach(n=>{
+    const t=topSet(rows.filter(r=>r.ex===n));const past=prior.filter(r=>r.ex===n);
+    if(!past.length){l1.push(n+" 첫 기록("+d1(t)+")");return}
+    const ld=past.map(r=>r.date).sort().pop();const pt=topSet(past.filter(r=>r.date===ld));const best=topSet(past);
+    const k=t.kg||0,rp=t.rep||0;let st;
+    if(k>(best.kg||0)||(k===(best.kg||0)&&rp>(best.rep||0)))st="신기록";
+    else if(k>(pt.kg||0))st="상승";else if(k<(pt.kg||0))st="하락";
+    else st=rp>(pt.rep||0)?"상승":rp<(pt.rep||0)?"하락":"정체";
+    l1.push(n+" "+st+"("+d1(pt)+"→"+d1(t)+")")});
+  const p1=warns.concat(l1.length>4?l1.slice(0,4).concat(["외 "+(l1.length-4)+"종목"]):l1);
+  // 2줄
+  const wk={};db.rows.filter(r=>r.ex!==CM&&r.part&&!isWarm(r)&&!isCardio(r)&&r.date>=addDays(date,-6)&&r.date<=date).forEach(r=>wk[r.part]=(wk[r.part]||0)+(r.set||0));
+  const parts=[...new Set(rows.map(r=>r.part))];
+  const seg=parts.map(p=>p+" "+(wk[p]||0)+"세트("+((wk[p]||0)<band(p)[0]?"부족":(wk[p]||0)>band(p)[1]?"과함":"적정")+", 기준 "+band(p)[0]+"~"+band(p)[1]+")");
+  const lowMiss=PRIORITY?[PRIORITY].filter(p=>(wk[p]||0)<band(p)[0]):[];
+  const ones=names.filter(n=>rows.filter(r=>r.ex===n).reduce((s,r)=>s+(r.set||0),0)===1);
+  const fixes=[];
+  if(lowMiss.length)fixes.push(PRIORITY+" 우선 목표인데 "+lowMiss.map(p=>p+" "+(wk[p]||0)+"세트").join("·")+" (주 "+band(PRIORITY)[0]+"세트 미만)");
+  const lowParts=parts.filter(p=>p!==PRIORITY&&(wk[p]||0)<band(p)[0]);
+  if(lowParts.length)fixes.push(lowParts.map(p=>p+" "+(wk[p]||0)+"세트").join("·")+" (주 "+band(lowParts[0])[0]+"세트 미만, 이번 주 남은 운동에서 보충)");
+  if(ones.length)fixes.push("1세트뿐인 종목: "+ones.join(", "));
+  if(parts.some(p=>(wk[p]||0)>band(p)[1]))fixes.push("상한을 넘은 부위는 회복을 위해 세트를 줄이기");
+  if(!fixes.length)fixes.push("뚜렷한 부족은 없지만 '실패까지 몇 개 남았는지' 메모가 없어 강도 판단이 안 됨");
+  const extra=[];
+  if(warmRows.length)extra.push("웜업·쿨다운 "+warmRows.reduce((a,r)=>a+(r.set||0),0)+"세트는 볼륨에서 제외");
+  cardioTxt.forEach(t=>extra.push("유산소: "+t));
+  const p2=["최근 7일 누적(웜업 제외) → "+seg.join(", ")].concat(fixes.map(f=>"고칠 점: "+f)).concat(extra);
+  // 3줄
+  const order=names.slice().sort((a,b)=>{const pa=LOWER.includes(rows.find(r=>r.ex===a).part)?0:1,pb=LOWER.includes(rows.find(r=>r.ex===b).part)?0:1;return pa-pb});
+  const l3=[];
+  if(fbRow){const tt=topSet(rows.filter(r=>r.ex===fbRow.ex));if(tt&&tt.kg){const rd=v=>Math.round(v/2.5)*2.5;l3.push(fbRow.ex+" 웜업은 "+rd(tt.kg*0.5)+"kg×8 → "+rd(tt.kg*0.7)+"kg×3 두 세트로 줄이고, 작업 세트 사이 휴식 3분 이상")}}
+  order.slice(0,3).forEach(n=>{
+    const rs=rows.filter(r=>r.ex===n),t=topSet(rs),part=rs[0].part;
+    if(t.kg===0){const tr=COMP.test(n)?10:15,rp=rs.map(r=>r.rep||0);l3.push(rp.every(x=>x>=tr)?n+" 맨몸으로 전 세트 "+tr+"회 달성 → 다음엔 중량 2.5~5kg 추가":n+" 맨몸 유지, 전 세트 "+tr+"회 달성이 목표(오늘 "+Math.min(...rp)+"~"+Math.max(...rp)+"회)");return}
+    if(!t.kg){l3.push(n+" 무게를 적어야 다음 목표를 계산할 수 있음");return}
+    const comp=COMP.test(n),pr=(PLAN[n]||{}).rep,topR=pr||(comp?10:15),bot=pr?pr-5:(comp?6:10),inc=comp&&LOWER.includes(part)?5:/사레레|레이즈|덤벨|컬/.test(n)&&!comp?1:2.5;
+    const reps=rs.map(r=>r.rep||0);
+    if(reps.every(x=>x>=topR))l3.push(n+" "+t.kg+"→"+(t.kg+inc)+"kg로 "+bot+"~"+(pr?pr:bot+2)+"회부터");
+    else l3.push(n+" "+t.kg+"kg 유지, 전 세트 "+topR+"회 달성이 목표(오늘 "+(Math.min(...reps)===Math.max(...reps)?Math.min(...reps):Math.min(...reps)+"~"+Math.max(...reps))+"회)")});
+  const more=[];
+  parts.filter(p=>(wk[p]||0)<band(p)[0]).slice(0,2).forEach(p=>{const n=names.find(x=>rows.find(r=>r.ex===x).part===p);const s=rows.filter(r=>r.ex===n).reduce((a,r)=>a+(r.set||0),0);more.push(n+" "+s+"→"+(s+2)+"세트")});
+  const p3=l3.concat(more.map(m=>"세트 추가: "+m));
+  return [p1.join(SEP),p2.join(SEP),p3.join(SEP)]}
+
+// ---- 저장 ----
+function addEntries(date,text,partMap,opt){
+  opt=opt||{};
+  const lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean);
+  const bad=[],blocks=[];let cur=null;
+  lines.forEach(raw=>{
+    const line=raw.replace(FILLER,"");
+    const hi=line.indexOf("#"),cl=hi>=0?line.slice(0,hi):line,cmm=hi>=0?line.slice(hi+1).trim():"";
+    const c=cardioOf(cl);
+    if(c){blocks.push({cardio:1,name:c.name,memo:c.memo+(cmm?" / "+cmm:"")});cur=null;return}
+    const toks=line.split(/\s+/);
+    let k=0;while(k<toks.length&&!/^(\d|[x×*?-]\d|[x×*]x)/i.test(toks[k]))k++;
+    if(k>0){if(k>=toks.length){bad.push(raw);return}cur={name:normName(toks.slice(0,k).join(" ")),groups:[]};blocks.push(cur)}
+    else if(!cur){bad.push(raw);return}
+    const pr=parseData(toks.slice(k).join(" "));
+    if(!pr.groups.length){bad.push(raw);return}
+    const mk=opt.exact?"":kindOf(pr.memo);
+    pr.groups.forEach((g,i)=>{
+      if(mk&&!g.kind)g.kind=mk;
+      g.lineMemo=i===0?pr.memo:"";
+      if(g.kind==="웜업"&&!opt.exact)cur.groups.forEach(x=>{if(!x.kind)x.kind="웜업"});
+      cur.groups.push(g)})});
+  const add=[];
+  blocks.forEach(b=>{
+    if(b.cardio){add.push({date,ex:b.name,part:/러닝|런닝/.test(b.name)?"러닝":"유산소",kg:null,set:1,rep:null,memo:b.memo});return}
+    const part=(partMap&&partMap[b.name])||partOf(b.name);
+    b.groups.forEach(g=>{
+      const memo=[];
+      if(g.kind&&!(g.lineMemo&&kindOf(g.lineMemo)))memo.push(g.kind);
+      if(g.lineMemo)memo.push(g.lineMemo);
+      const miss=[];if(g.kg==null)miss.push("무게");if(g.rep==null)miss.push("횟수");
+      if(miss.length)memo.push("기록 없음("+miss.join("·")+")");
+      let ms=memo.join(" / ");if(!g.kind&&kindOf(ms))ms="※ "+ms;
+      add.push({date,ex:b.name,part,kg:g.kg,set:g.set==null?1:g.set,rep:g.rep,memo:ms})})});
+  if(!add.length)return {bad,ok:false};
+  const rest=db.rows.filter(r=>!(r.date===date&&r.ex===CM));
+  db.rows=merge(rest.concat(add));
+  const cm=makeComment(date);
+  db.rows.push({date,ex:CM,part:"",kg:null,set:null,rep:null,memo:cm.join("\n")});
+  db.rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.ex===CM)-(b.ex===CM)));
+  save();return {bad,ok:true}}
+
+// ---- 화면 ----
+function tableHTML(date){
+  return "<tr><th>운동</th><th>부위</th><th>무게</th><th>세트</th><th>횟수</th><th>메모</th></tr>"+
+   dayRows(date).map(r=>`<tr class="${isWarm(r)?"warm":""}"><td><b>${esc(r.ex)}</b></td><td>${chipP(r.part)}</td><td>${r.kg==null?"":r.kg===0?"맨몸":r.kg+"kg"}</td><td>${r.set==null?"":r.set}</td><td>${r.rep==null?"":r.rep}</td><td>${esc(r.memo)}</td></tr>`).join("")}
+function cmHTML(date){
+  const cm=db.rows.find(r=>r.date===date&&r.ex===CM);
+  if(!cm)return '<div class="hint">이 날은 코멘트가 없어요(옛 기록).</div>';
+  const L=cm.memo.split("\n");const lab=["변화","볼륨·구성","다음 운동"];
+  const color=s=>s.replace(/(신기록|상승)/g,'<span class="up">$1</span>').replace(/(하락|부족|⚠|과함|무게를 적어야)/g,'<span class="dn">$1</span>');
+  return L.map((t,i)=>`<div class="sec"><div class="lab">${i+1}. ${lab[i]||""}</div><ul>${t.split(SEP).map(x=>`<li>${color(esc(x))}</li>`).join("")}</ul></div>`).join("")}
+function show(date){
+  const rs=dayRows(date);
+  $("resCard").style.display=rs.length?"block":"none";if(!rs.length)return;
+  $("resTitle").textContent=date+" 운동";
+  $("resTable").innerHTML=tableHTML(date);
+  $("resCm").innerHTML=cmHTML(date);
+  $("resCard").dataset.date=date}
+const openDays=new Set();
+function list(){
+  const ds=[...new Set(db.rows.map(r=>r.date))].sort().reverse().slice(0,30);
+  $("days").innerHTML=ds.length?ds.map(d=>{const ps=[...new Set(dayRows(d).map(r=>r.part))].filter(Boolean);return `<div class="log" data-d="${d}"><span><b>${d}</b> <span class="chips">${ps.map(chipP).join("")}</span></span><span class="hint">${openDays.has(d)?"접기 ▲":"눌러서 보기 ▼"}</span></div>
+    <div class="detail" style="display:${openDays.has(d)?"block":"none"}"><div class="scroll"><table>${tableHTML(d)}</table></div><h3 class="dh">코멘트·방향</h3><div class="cm">${cmHTML(d)}</div><div class="row"><button class="bad ghost" data-del="${d}">이 날 기록 지우기</button></div></div>`}).join(""):'<div class="hint">아직 기록이 없어요.</div>';
+  $("days").querySelectorAll("[data-d]").forEach(e=>e.onclick=()=>{const d=e.dataset.d;if(openDays.has(d))openDays.delete(d);else openDays.add(d);list()});
+  $("days").querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{const d=e.dataset.del;if(confirm(d+" 기록을 모두 지울까요?")){db.rows=db.rows.filter(r=>r.date!==d);openDays.delete(d);save();if($("resCard").dataset.date===d)$("resCard").style.display="none";list()}});
+  $("csvPre").textContent=toCSV()}
+function q(v){v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function toCSV(){return "날짜,운동,부위,무게kg,세트,횟수,메모\n"+db.rows.map(r=>[r.date,r.ex,r.part,r.kg,r.set,r.rep,r.memo].map(q).join(",")).join("\n")}
+function parseCSV(t){const rows=[];let row=[],f="",inq=false;t=t.replace(/^﻿/,"");
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(inq){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else inq=false}else f+=c}
+    else if(c=='"')inq=true;else if(c==","){row.push(f);f=""}
+    else if(c=="\n"||c=="\r"){if(c=="\r"&&t[i+1]=="\n")i++;row.push(f);f="";if(row.some(x=>x!==""))rows.push(row);row=[]}
+    else f+=c}
+  if(f!==""||row.length){row.push(f);rows.push(row)}return rows}
+$("save").onclick=()=>{
+  const date=$("date").value;if(!date){alert("날짜를 골라 주세요.");return}
+  if(!$("inp").value.trim()){alert("운동 내용을 적어 주세요.");return}
+  const r=addEntries(date,$("inp").value);
+  if(!r.ok){alert("읽을 수 있는 줄이 없어요.\n이렇게 적어 주세요: 스쿼트 80x8x3");return}
+  if(r.bad.length)alert("이 줄은 읽지 못해서 건너뛰었어요:\n"+r.bad.join("\n"));
+  $("inp").value="";show(date);list();$("resCard").scrollIntoView({behavior:"smooth"})};
+$("ex").onclick=()=>{$("inp").value="스퀏 60 ×8,80×8웜업\n100×5\n120×5\n100×8,6,5- 2셋부터 엉덩이가 뒤로 빠지면서 올라감\n60×8-쿨다운(와이드로 함)\nV스퀏 80×12 90×12×3\n레그컬 60 12×4 50×12\n이후 러닝3키로 20분대"};
+$("delDay").onclick=()=>{const d=$("resCard").dataset.date;if(d&&confirm(d+" 기록을 모두 지울까요?")){db.rows=db.rows.filter(r=>r.date!==d);save();$("resCard").style.display="none";list()}};
+$("dl").onclick=()=>{const b=new Blob(["﻿"+toCSV()],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="workout_log.csv";a.click()};
+$("up").onclick=()=>$("file").click();
+$("file").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{
+  const rs=parseCSV(rd.result);if(rs.length<2){alert("읽을 내용이 없어요.");return}
+  if(!confirm("지금 기록을 이 파일 내용으로 바꿀까요? ("+(rs.length-1)+"줄)"))return;
+  const num=v=>v===""||v==null?null:parseFloat(v);
+  db.rows=rs.slice(1).map(c=>({date:c[0],ex:c[1],part:c[2]||"",kg:num(c[3]),set:num(c[4]),rep:num(c[5]),memo:c[6]||""}));
+  db.rows.forEach(r=>{if(r.ex!==CM&&r.part)db.map[r.ex]=r.part});
+  save();list();$("resCard").style.display="none"};rd.readAsText(f,"utf-8");e.target.value=""};
+const QUOTES=["오늘의 한 세트가 내일의 기록을 만든다.","하체를 하는 날은 성장하는 날이다.","무게는 거짓말하지 않는다. 쌓은 만큼 올라간다.","동기부여는 시작을 돕고, 습관이 끝까지 데려간다.","가장 어려운 세트는 헬스장 문을 여는 것이다.","기록하는 사람은 정체기를 이겨낸다.","어제의 나보다 1회만 더.","컨디션이 안 좋아도 오늘 가면 이미 이긴 것이다.","큰 근육은 하루가 아니라 수백 번의 평범한 날로 만들어진다.","스쿼트 앞에서 망설이지 말고 바 아래로 들어가라.","회복도 훈련이다. 잘 먹고 잘 자라.","단백질, 오늘도 채우자.","무겁게 들기 전에 정확하게 들어라.","통증은 신호다. 욕심보다 몸의 말을 먼저 들어라.","벌크업은 인내심 싸움이다. 천천히, 그러나 꾸준히.","오늘 힘든 만큼 3월의 체력이 된다.","완벽한 날을 기다리지 말고 오늘 할 수 있는 만큼 하라.","실패하는 날도 기록하면 데이터가 된다.","강한 몸은 강한 마음에서 시작된다.","빠진 하루보다 이어간 일주일이 더 크다.","점진적 과부하, 작게라도 매주 올려라.","땀은 배신하지 않는다. 기록은 더 그렇다.","지금 드는 한 번이 다음 달의 쉬운 무게가 된다."];
+let qi=Math.floor(new Date().setHours(0,0,0,0)/86400000)%QUOTES.length;
+const showQuote=()=>{$("quote").textContent="“"+QUOTES[qi]+"”"};
+$("nq").onclick=()=>{qi=(qi+1+Math.floor(Math.random()*(QUOTES.length-1)))%QUOTES.length;showQuote()};
+showQuote();
+// ---- 예전 기록 가져오기(한 번만) + 부위 새 분류로 정리 ----
+const SEED=[];
+const cvCm=t=>String(t).split(/\s*[123]\)\s*/).map(x=>x.trim()).filter(Boolean).slice(0,3).join("\n");
+function migrate(){
+  db.rows.forEach(r=>{if(r.ex===CM||!r.part)return;const np=newPart(r.part,r.ex);if(np!==r.part)r.part=np});
+  Object.keys(db.map||{}).forEach(k=>{db.map[k]=newPart(db.map[k],k)})}
+if(!db.seed2){
+  const dates=new Set(SEED.map(r=>r[0]));
+  db.rows=db.rows.filter(r=>!dates.has(r.date));
+  const num=v=>v===""||v==null?null:+v;
+  SEED.forEach(r=>{
+    const ex=aliasName(r[1]);
+    if(ex===CM){db.rows.push({date:r[0],ex:CM,part:"",kg:null,set:null,rep:null,memo:cvCm(r[6])});return}
+    db.rows.push({date:r[0],ex,part:r[2]?newPart(r[2],ex):"",kg:num(r[3]),set:num(r[4]),rep:num(r[5]),memo:r[6]||""})});
+  db.seed2=1;
+  db.rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.ex===CM)-(b.ex===CM)))}
+migrate();save();
+
+// ---- 운동 고르기 ----
+const CAT_EX={
+"가슴":["벤치프레스","인클라인 벤치","인클라인 덤벨프레스","스미스 바벨 벤치","디클라인 덤벨프레스","딥스","스탠딩 플라이","덤벨 플라이","푸쉬업","덤벨 풀오버","체스트 프레스"],
+"등":["풀업","페러럴그립 친업","바벨로우","덤벨로우","원암 덤벨로우","랫풀다운","랙풀","시티드로우","T바 로우","덤벨 풀오버","루마니안 데드리프트","데드리프트"],
+"하체":["스쿼트","V스쿼트","핵스쿼트","불가리안 스플릿 스쿼트","스미스머신 런지","런지","레그프레스","레그컬","레그익스텐션","스티프 데드리프트","이너타이","카프레이즈"],
+"어깨":["OHP","숄더프레스","덤벨 숄더프레스","밀리터리프레스","사레레","덤벨 프론트레이즈","펙덱플라이","리버스 덤벨레이즈","벤트오버 레터럴레이즈"],
+"이두":["프리처컬","해머컬","바벨컬","덤벨컬","EZ바컬","인클라인 덤벨컬","케이블 컬","와이드 그립 이두컬"],
+"삼두":["라잉 트라이셉스 익스텐션","케이블 푸쉬다운","덤벨 오버헤드 익스텐션","트라이셉스 킥백","체어딥스","딥스","스컬크러셔","삼두 푸쉬업"],
+"복근":["레그레이즈","행잉 레그레이즈","사이드 레그레이즈","플랭크","크런치","사이드 크런치","에어바이시클","니업"],
+"러닝":["러닝"]};
+const CATS=Object.keys(CAT_EX);
+const PLAN={};
+let curCat="가슴",draft=Array.isArray(db.draft)?db.draft:[];
+const persist=()=>{db.draft=draft;save()};
+function lastOf(n){
+  const rs=db.rows.filter(r=>r.ex===n&&r.part&&!isWarm(r));
+  if(!rs.length)return null;
+  const ld=rs.map(r=>r.date).sort().pop(),day=rs.filter(r=>r.date===ld),t=topSet(day);
+  return {date:ld,kg:t.kg||0,rep:t.rep||10,set:Math.min(10,day.reduce((a,r)=>a+(r.set||0),0))}}
+function addPick(ex,cat){
+  if(cat==="러닝"){draft.push({ex,cat,cardio:1,dist:"",min:""});return}
+  const l=lastOf(ex),pl=PLAN[ex]||{};
+  draft.push({ex,cat,last:l,lines:[{kg:l?l.kg:(pl.kg||(BW.test(ex)?0:20)),set:pl.set||(l?l.set:3),rep:pl.rep||(l?l.rep:10),kind:""}]})}
+const BW=/풀업|친업|딥스|푸쉬업|푸시업|플랭크|크런치|레그레이즈|니업|에어바이시클/; // 맨몸 운동은 0kg부터
+const STEP={kg:2.5,set:1,rep:1,dist:0.5,min:1},MINV={kg:0,set:1,rep:1,dist:0,min:0};
+const r10=v=>Math.round(v*10)/10;
+const obj=(i,j)=>draft[i].cardio?draft[i]:draft[i].lines[j];
+function stepper(label,i,j,f,v,unit){
+  return `<span class="st"><label>${label}</label><button data-s="${i}:${j}:${f}:-">−</button><input type="number" data-f="${i}:${j}:${f}" value="${v===""?"":r10(v)}" step="${STEP[f]}" min="${MINV[f]}"><button data-s="${i}:${j}:${f}:+">＋</button>${unit?`<label>${unit}</label>`:""}</span>`}
+function renderPicker(){
+  $("cats").innerHTML=CATS.map(c=>{const n=draft.filter(d=>d.cat===c).length;return `<button class="${c===curCat?"on":""}" data-c="${c}" style="--c:${pc(c)}">${c}${n?` <b>${n}</b>`:""}</button>`}).join("");
+  $("exs").style.setProperty("--c",pc(curCat));
+  $("exs").innerHTML=CAT_EX[curCat].map(n=>`<button class="${draft.some(d=>d.ex===n)?"sel":""}" data-e="${esc(n)}">${esc(n)}</button>`).join("");
+  $("picked").innerHTML=draft.length?draft.map((d,i)=>{
+    const head=`<div style="display:flex;justify-content:space-between;gap:8px"><span><span class="nm">${esc(d.ex)}</span> ${chipP(d.cat)}${d.last?`<div class="hint">지난번(${d.last.date.slice(5)}): ${d.last.kg?d.last.kg+"kg ":""}${d.last.rep}회 · 그날 ${d.last.set}세트</div>`:""}${PLAN[d.ex]?`<div class="hint">내 계획: ${PLAN[d.ex].set}세트</div>`:""}</span><button class="ghost" data-rm="${i}">✕</button></div>`;
+    if(d.cardio)return `<div class="sl" style="--c:${pc(d.cat)}">${head}<div class="ln">${stepper("거리",i,"-","dist",d.dist,"km")}${stepper("시간",i,"-","min",d.min,"분")}</div><textarea class="memo" data-m="${i}" rows="2" placeholder="메모 (예: 2세트부터 엉덩이가 빠짐, 웜업이 셌나?)">${esc(d.memo||"")}</textarea></div>`;
+    return `<div class="sl" style="--c:${pc(d.cat)}">${head}${d.lines.map((l,j)=>`<div class="ln ${l.kind==="웜업"?"w":l.kind==="쿨다운"?"c":""}">${stepper("무게",i,j,"kg",l.kg,"kg")}${stepper("세트",i,j,"set",l.set,"")}${stepper("횟수",i,j,"rep",l.rep,"")}<span class="seg">${[["웜업","웜업","k-w"],["","본세트","k-m"],["쿨다운","쿨다운","k-c"]].map(k=>`<button class="${k[2]}${(l.kind||"")===k[0]?" on":""}" data-kd="${i}:${j}:${k[0]}">${k[1]}</button>`).join("")}</span>${d.lines.length>1?`<button class="ghost" data-dl="${i}:${j}">✕</button>`:""}</div>`).join("")}<button class="ghost" data-al="${i}" style="margin-top:8px;padding:6px 12px">＋ 다른 무게/횟수 줄 추가</button><textarea class="memo" data-m="${i}" rows="2" placeholder="메모 (예: 2세트부터 엉덩이가 빠짐, 웜업이 셌나?)">${esc(d.memo||"")}</textarea></div>`}).join(""):'<div class="hint" style="padding:12px 0">왼쪽에서 운동을 누르면 여기에 담겨요.<br>무게 0은 맨몸 운동(풀업·딥스 등)으로 기록돼요.</div>'}
+$("cats").onclick=e=>{const b=e.target.closest("button");if(!b)return;curCat=b.dataset.c;renderPicker()};
+$("exs").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  const n=b.dataset.e,k=draft.findIndex(d=>d.ex===n);
+  if(k>=0)draft.splice(k,1);else addPick(n,curCat);
+  persist();renderPicker()};
+$("picked").onclick=e=>{const b=e.target.closest("button");if(!b)return;const D=b.dataset;
+  if(D.rm!==undefined)draft.splice(+D.rm,1);
+  else if(D.al!==undefined){const d=draft[+D.al];d.lines.push({...d.lines[d.lines.length-1],kind:""})}
+  else if(D.kd!==undefined){const a=D.kd.split(":");draft[+a[0]].lines[+a[1]].kind=a[2]||""}
+  else if(D.dl){const a=D.dl.split(":").map(Number);draft[a[0]].lines.splice(a[1],1)}
+  else if(D.s){const a=D.s.split(":");const o=obj(+a[0],a[1]==="-"?0:+a[1]),f=a[2];const cur=+o[f]||0;o[f]=Math.max(MINV[f],r10(cur+(a[3]==="+"?1:-1)*STEP[f]))}
+  else return;
+  persist();renderPicker()};
+$("picked").onchange=e=>{const t=e.target;
+  if(t.dataset.f){const a=t.dataset.f.split(":");const o=obj(+a[0],a[1]==="-"?0:+a[1]);const v=parseFloat(t.value);o[a[2]]=isNaN(v)?"":Math.max(MINV[a[2]],v)}
+  else if(t.dataset.m!==undefined){draft[+t.dataset.m].memo=t.value;persist();return}
+  else if(t.dataset.k){const a=t.dataset.k.split(":").map(Number);draft[a[0]].lines[a[1]].kind=t.value}
+  else return;
+  persist();renderPicker()};
+$("picked").oninput=e=>{const t=e.target;if(t.dataset.m!==undefined){draft[+t.dataset.m].memo=t.value;persist()}};
+$("pickClear").onclick=()=>{if(!draft.length||confirm("고른 운동을 모두 비울까요?")){draft=[];persist();renderPicker()}};
+$("pickSave").onclick=()=>{
+  const date=$("date").value;if(!date){alert("날짜를 골라 주세요.");return}
+  if(!draft.length){alert("왼쪽에서 운동을 먼저 골라 주세요.");return}
+  const lines=[],parts={};
+  draft.forEach(d=>{
+    const memo=(d.memo||"").replace(/\n+/g," ").trim();
+    if(d.cardio){lines.push(d.ex+(d.dist?" "+d.dist+"km":"")+(d.min?" "+d.min+"분":"")+(memo?" # "+memo:""));return}
+    parts[d.ex]=d.cat;
+    let mi=d.lines.findIndex(l=>!l.kind);if(mi<0)mi=0;
+    d.lines.forEach((l,j)=>lines.push((j===0?d.ex+" ":"")+(+l.kg||0)+"x"+(l.rep||1)+"x"+(l.set||1)+(l.kind||"")+(j===mi&&memo?" # "+memo:"")))});
+  const r=addEntries(date,lines.join("\n"),parts,{exact:1});
+  if(!r.ok){alert("기록할 내용이 없어요.");return}
+  if(r.bad.length)alert("이 줄은 읽지 못해서 건너뛰었어요:\n"+r.bad.join("\n"));
+  draft=[];persist();renderPicker();show(date);list();$("resCard").scrollIntoView({behavior:"smooth"})};
+function renderSum(){
+  const by={};let km=0;
+  draft.forEach(d=>{if(d.cardio){km+=+d.dist||0;by[d.cat]=by[d.cat]||0;return}
+    d.lines.forEach(l=>{if(!l.kind)by[d.cat]=(by[d.cat]||0)+(+l.set||0)})});
+  $("phead").textContent=draft.length?"오늘 고른 운동 "+draft.length+"개":"";
+  $("psum").innerHTML=draft.length?'<span class="hint">부위별 본세트 </span>'+Object.keys(by).map(p=>`<span class="pchip" style="--c:${pc(p)}">${esc(p)} ${p==="러닝"||p==="유산소"?(km?km+"km":"✓"):by[p]+"세트"}</span>`).join(""):""}
+const renderPicker0=renderPicker;renderPicker=function(){renderPicker0();renderSum()};
+renderPicker();
+if(location.protocol.startsWith("http")){const l=document.createElement("link");l.rel="manifest";l.href="manifest.webmanifest";document.head.appendChild(l);if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}
+$("date").value=fmt(new Date());
+list();
+</script>
+</body>
+</html>
