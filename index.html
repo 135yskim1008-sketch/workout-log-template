@@ -459,9 +459,8 @@ async function sync(){
   const sentAt=Date.now();
   try{
     ensureIds();
-    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),25000);
-    const res=await fetch(db.sync.url,{method:"POST",signal:ac.signal,body:JSON.stringify({key:db.sync.key,rows:db.rows.map(r=>({date:r.date,ex:r.ex,part:r.part||"",kg:r.kg,set:r.set,rep:r.rep,memo:r.memo||"",id:r.id,u:r.u||0})),tomb:db.tomb})});
-    const j=await res.json();clearTimeout(to);
+    const send=()=>{const ac=new AbortController(),to=setTimeout(()=>ac.abort(),45000);return fetch(db.sync.url,{method:"POST",signal:ac.signal,body:JSON.stringify({key:db.sync.key,rows:db.rows.map(r=>({date:r.date,ex:r.ex,part:r.part||"",kg:r.kg,set:r.set,rep:r.rep,memo:r.memo||"",id:r.id,u:r.u||0})),tomb:db.tomb})}).then(r=>r.json()).finally(()=>clearTimeout(to))};
+    let j;try{j=await send()}catch(e1){if(e1.name==="AbortError")throw e1;await new Promise(r=>setTimeout(r,2000));j=await send()}
     if(!j.ok)throw new Error(j.error||"알 수 없는 오류");
     const got=j.rows.map(r=>({date:String(r.date),ex:String(r.ex),part:String(r.part||""),kg:numN(r.kg),set:numN(r.set),rep:numN(r.rep),memo:String(r.memo||""),id:String(r.id),u:+r.u||0}));
     const ids=new Set(got.map(r=>r.id));
@@ -470,7 +469,10 @@ async function sync(){
     db.sync.last=Date.now();save();list();
     setSyncMsg("✅ "+new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})+" 동기화됨");
     if(during.length)syncSoon();
-  }catch(e){setSyncMsg("⚠ 동기화 실패 — 인터넷이나 주소를 확인해 주세요 ("+(e.name==="AbortError"?"응답이 너무 늦음":(e.message||e))+")")}
+  }catch(e){const m=String(e.message||e);
+    setSyncMsg("⚠ 동기화 실패 — "+(m.includes("비밀번호")?"연결 코드가 맞지 않아요. 노트북 앱의 '다른 기기 연결 코드 복사'로 받은 글 전체를 아래 '이미 다른 기기에서 연결했다면' 칸에 다시 붙여넣어 주세요."
+      :e.name==="AbortError"?"응답이 너무 늦어요(인터넷이 느림). 잠시 뒤 '지금 동기화'를 눌러 주세요."
+      :/fetch|network|Load failed|NetworkError/i.test(m)?"인터넷에 연결되지 않았거나 주소가 잘못됐어요. ("+m+")":m))}
   syncing=false}
 function copyText(t,btn){
   const done=()=>{if(!btn)return;const o=btn.textContent;btn.textContent="✓ 복사됨";setTimeout(()=>{btn.textContent=o},1500)};
@@ -482,7 +484,7 @@ function renderSync(){
   if(!db.sync.url&&!db.sync.off&&DEFAULT_SYNC.url){db.sync.url=DEFAULT_SYNC.url;db.sync.key=DEFAULT_SYNC.key;save()}
   if(!db.sync.key){db.sync.key=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);save()}
   const on=!!db.sync.url;
-  $("syncBody").innerHTML=on?`<div class="row"><span class="sync-on">연결됨</span><button id="gsNow">지금 동기화</button><button class="ghost" id="gsShare">다른 기기 연결 코드 복사</button><button class="ghost" id="gsOff">연결 끊기</button></div>
+  $("syncBody").innerHTML=on?`<div class="row"><span class="sync-on">연결됨</span><button id="gsNow">지금 동기화</button><button class="ghost" id="gsShare">다른 기기 연결 코드 복사</button><button class="ghost" id="gsOff">연결 끊기</button></div><details style="margin:4px 0 8px"><summary class="hint">연결 코드 다시 넣기 (동기화 실패가 계속될 때)</summary><div class="row" style="margin-top:6px"><input id="gsReIn" placeholder="노트북에서 복사한 연결 코드 전체" style="flex:1"><button id="gsRe">다시 연결</button></div></details>
     <div class="hint">기록을 저장·삭제하면 자동으로 구글 시트에 올라가고, 앱을 열거나 다시 볼 때마다 다른 기기의 기록을 받아와요. 구글 시트 '기록' 탭에서 표로도 볼 수 있어요.<br>다른 기기(핸드폰 등)는 "다른 기기 연결 코드 복사" → 카톡 나와의 채팅으로 보내기 → 그 기기 앱의 이 칸에서 "이미 다른 기기에서 연결했다면"에 붙여넣기.<br><b>연결 코드는 비밀번호와 같아요. 남에게 보내지 마세요.</b></div>`
   :`<div class="hint">핸드폰·노트북 기록을 <b>내 구글 시트 하나</b>에 모아서 자동으로 맞춰요. 처음 한 번만 설정하면 돼요(약 5분). 기록은 내 구글 계정의 시트에만 저장돼요.</div>
     <ol class="steps">
@@ -501,15 +503,16 @@ function renderSync(){
   if(on){
     if(!$("syncMsg").textContent)setSyncMsg(db.sync.last?"마지막 동기화: "+new Date(db.sync.last).toLocaleString("ko-KR"):"");
     $("gsNow").onclick=()=>sync();
+    $("gsRe").onclick=()=>{const c=$("gsReIn").value.replace(/\s+/g,""),k=c.lastIndexOf("|");if(k<8){alert("연결 코드가 아니에요.");return}db.sync.url=c.slice(0,k);db.sync.key=c.slice(k+1);db.sync.off=0;save();setSyncMsg("");renderSync();sync()};
     $("gsShare").onclick=e=>copyText(db.sync.url+"|"+db.sync.key,e.target);
     $("gsOff").onclick=()=>{if(confirm("이 기기의 연동을 끊을까요? (기록과 구글 시트는 그대로 남아요)")){delete db.sync.url;db.sync.off=1;save();setSyncMsg("");renderSync()}};
   }else{
     $("gsCode").value=GS_CODE.replace("%KEY%",db.sync.key);
     $("gsCopy").onclick=e=>copyText($("gsCode").value,e.target);
-    $("gsConnect").onclick=()=>{const u=$("gsUrl").value.trim();if(!/^https?:\/\/\S+$/.test(u)){alert("웹 앱 URL을 붙여넣어 주세요.");return}
+    $("gsConnect").onclick=()=>{const raw=$("gsUrl").value.replace(/\s+/g,"");if(raw.includes("|")){const k=raw.lastIndexOf("|");db.sync.url=raw.slice(0,k);db.sync.key=raw.slice(k+1);db.sync.off=0;save();renderSync();sync();return}const u=raw;if(!/^https?:\/\/\S+$/.test(u)){alert("웹 앱 URL을 붙여넣어 주세요.");return}
       if(!/script\.google\.com/.test(u)&&!confirm("구글 Apps Script 주소가 아닌 것 같아요. 그래도 연결할까요?"))return;
       db.sync.url=u;db.sync.off=0;save();renderSync();sync()};
-    $("gsJoin").onclick=()=>{const c=$("gsJoinIn").value.trim(),k=c.lastIndexOf("|");if(k<8){alert("연결 코드가 아니에요. 다른 기기에서 '다른 기기 연결 코드 복사'를 눌러 받은 글을 붙여넣어 주세요.");return}
+    $("gsJoin").onclick=()=>{const c=$("gsJoinIn").value.replace(/\s+/g,""),k=c.lastIndexOf("|");if(k<8){alert("연결 코드가 아니에요. 다른 기기에서 '다른 기기 연결 코드 복사'를 눌러 받은 글을 붙여넣어 주세요.");return}
       db.sync.url=c.slice(0,k);db.sync.key=c.slice(k+1);db.sync.off=0;save();renderSync();sync()};
   }}
 // ---- 예전 기록 가져오기(한 번만) + 부위 새 분류로 정리 ----
