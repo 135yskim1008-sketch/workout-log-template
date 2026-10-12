@@ -97,6 +97,10 @@ textarea.memo{width:100%;min-height:54px;margin-top:10px;font-size:15px;backgrou
 .exs button.mine{border-style:dashed;border-left-style:solid}
 .exs button.etcb{border:2px dashed var(--c);color:var(--c);background:transparent;text-align:center;font-weight:700}
 .bwtag{display:inline-block;padding:7px 12px;border-radius:9px;background:var(--c);color:#fff;font-weight:700;font-size:14px}
+ol.steps{margin:6px 0 10px;padding-left:22px;line-height:1.75}
+ol.steps li{margin:4px 0}
+#gsCode{min-height:90px;font-family:Consolas,monospace;font-size:12px}
+.sync-on{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--ok);color:#fff;font-size:13px;font-weight:700;margin-left:6px}
 pre{white-space:pre-wrap;word-break:break-all;font-size:13px;max-height:260px;overflow:auto;background:var(--bg);padding:10px;border-radius:8px}
 </style>
 </head>
@@ -142,6 +146,11 @@ pre{white-space:pre-wrap;word-break:break-all;font-size:13px;max-height:260px;ov
 <div class="card">
   <h2>지난 기록</h2>
   <div id="days"></div>
+</div>
+
+<div class="card">
+  <h2>☁️ 구글 시트 자동 연동 <span class="hint" id="syncMsg"></span></h2>
+  <div id="syncBody"></div>
 </div>
 
 <div class="card">
@@ -257,7 +266,7 @@ function merge(rows){
   const out=[];
   rows.forEach(r=>{
     const f=r.ex===CM?null:out.find(o=>o.date===r.date&&o.ex===r.ex&&o.kg===r.kg&&o.rep===r.rep&&kindOf(o.memo)===kindOf(r.memo));
-    if(f){f.set=(f.set||0)+(r.set||0);if(r.memo&&!(f.memo||"").includes(r.memo))f.memo=(f.memo?f.memo+" / ":"")+r.memo}
+    if(f){f.set=(f.set||0)+(r.set||0);f.u=Date.now();if(r.memo&&!(f.memo||"").includes(r.memo))f.memo=(f.memo?f.memo+" / ":"")+r.memo}
     else out.push({...r})});
   return out}
 
@@ -352,7 +361,7 @@ function addEntries(date,text,partMap,opt){
       cur.groups.push(g)})});
   const add=[];
   blocks.forEach(b=>{
-    if(b.cardio){add.push({date,ex:b.name,part:/러닝|런닝/.test(b.name)?"러닝":"유산소",kg:null,set:1,rep:null,memo:b.memo});return}
+    if(b.cardio){add.push({date,ex:b.name,part:/러닝|런닝/.test(b.name)?"러닝":"유산소",kg:null,set:1,rep:null,memo:b.memo,id:rid(),u:Date.now()});return}
     const part=(partMap&&partMap[b.name])||partOf(b.name);
     b.groups.forEach(g=>{
       const memo=[];
@@ -361,14 +370,14 @@ function addEntries(date,text,partMap,opt){
       const miss=[];if(g.kg==null)miss.push("무게");if(g.rep==null)miss.push("횟수");
       if(miss.length)memo.push("기록 없음("+miss.join("·")+")");
       let ms=memo.join(" / ");if(!g.kind&&kindOf(ms))ms="※ "+ms;
-      add.push({date,ex:b.name,part,kg:g.kg,set:g.set==null?1:g.set,rep:g.rep,memo:ms})})});
+      add.push({date,ex:b.name,part,kg:g.kg,set:g.set==null?1:g.set,rep:g.rep,memo:ms,id:rid(),u:Date.now()})})});
   if(!add.length)return {bad,ok:false};
   const rest=db.rows.filter(r=>!(r.date===date&&r.ex===CM));
   db.rows=merge(rest.concat(add));
   const cm=makeComment(date);
-  db.rows.push({date,ex:CM,part:"",kg:null,set:null,rep:null,memo:cm.join("\n")});
+  db.rows.push({date,ex:CM,part:"",kg:null,set:null,rep:null,memo:cm.join("\n"),id:"cm-"+date,u:Date.now()});
   db.rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.ex===CM)-(b.ex===CM)));
-  save();return {bad,ok:true}}
+  save();syncSoon();return {bad,ok:true}}
 
 // ---- 화면 ----
 function tableHTML(date){
@@ -393,7 +402,7 @@ function list(){
   $("days").innerHTML=ds.length?ds.map(d=>{const ps=[...new Set(dayRows(d).map(r=>r.part))].filter(Boolean);return `<div class="log" data-d="${d}"><span><b>${d}</b> <span class="chips">${ps.map(chipP).join("")}</span></span><span class="hint">${openDays.has(d)?"접기 ▲":"눌러서 보기 ▼"}</span></div>
     <div class="detail" style="display:${openDays.has(d)?"block":"none"}"><div class="scroll"><table>${tableHTML(d)}</table></div><h3 class="dh">코멘트·방향</h3><div class="cm">${cmHTML(d)}</div><div class="row"><button class="bad ghost" data-del="${d}">이 날 기록 지우기</button></div></div>`}).join(""):'<div class="hint">아직 기록이 없어요.</div>';
   $("days").querySelectorAll("[data-d]").forEach(e=>e.onclick=()=>{const d=e.dataset.d;if(openDays.has(d))openDays.delete(d);else openDays.add(d);list()});
-  $("days").querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{const d=e.dataset.del;if(confirm(d+" 기록을 모두 지울까요?")){db.rows=db.rows.filter(r=>r.date!==d);openDays.delete(d);save();if($("resCard").dataset.date===d)$("resCard").style.display="none";list()}});
+  $("days").querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{const d=e.dataset.del;if(confirm(d+" 기록을 모두 지울까요?")){delDayRows(d);openDays.delete(d);save();if($("resCard").dataset.date===d)$("resCard").style.display="none";list()}});
   $("csvPre").textContent=toCSV()}
 function q(v){v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function toCSV(){return "날짜,운동,부위,무게kg,세트,횟수,메모\n"+db.rows.map(r=>[r.date,r.ex,r.part,r.kg,r.set,r.rep,r.memo].map(q).join(",")).join("\n")}
@@ -412,26 +421,95 @@ $("save").onclick=()=>{
   if(r.bad.length)alert("이 줄은 읽지 못해서 건너뛰었어요:\n"+r.bad.join("\n"));
   $("inp").value="";show(date);list();$("resCard").scrollIntoView({behavior:"smooth"})};
 $("ex").onclick=()=>{$("inp").value="스퀏 60 ×8,80×8웜업\n100×5\n120×5\n100×8,6,5- 2셋부터 엉덩이가 뒤로 빠지면서 올라감\n60×8-쿨다운(와이드로 함)\nV스퀏 80×12 90×12×3\n레그컬 60 12×4 50×12\n이후 러닝3키로 20분대"};
-$("delDay").onclick=()=>{const d=$("resCard").dataset.date;if(d&&confirm(d+" 기록을 모두 지울까요?")){db.rows=db.rows.filter(r=>r.date!==d);save();$("resCard").style.display="none";list()}};
+$("delDay").onclick=()=>{const d=$("resCard").dataset.date;if(d&&confirm(d+" 기록을 모두 지울까요?")){delDayRows(d);save();$("resCard").style.display="none";list()}};
 $("dl").onclick=()=>{const b=new Blob(["﻿"+toCSV()],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="workout_log.csv";a.click()};
 $("up").onclick=()=>$("file").click();
 $("file").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{
   const rs=parseCSV(rd.result);if(rs.length<2){alert("읽을 내용이 없어요.");return}
   const num=v=>v===""||v==null?null:parseFloat(v);
   const inc=rs.slice(1).map(c=>({date:c[0],ex:aliasName(c[1]),part:c[2]?newPart(c[2],aliasName(c[1])):"",kg:num(c[3]),set:num(c[4]),rep:num(c[5]),memo:c[6]||""}));
+  const seenH={};inc.forEach(r=>{r.id=r.ex===CM?"cm-"+r.date:hashId(r,seenH);r.u=Date.now()});
   if(confirm("불러온 "+inc.length+"줄을 지금 기록과 합칠까요?\n\n[확인] 합치기 — 겹치는 기록은 한 번만 남겨요 (핸드폰↔노트북 옮길 때)\n[취소] 합치지 않기 — 다음 질문에서 '전부 바꾸기'를 고를 수 있어요")){
     const key=r=>[r.date,r.ex,r.kg,r.set,r.rep,r.memo].join("|");const have=new Set(db.rows.map(key));let n=0;
     inc.forEach(r=>{if(r.ex===CM&&db.rows.some(x=>x.date===r.date&&x.ex===CM))return;if(!have.has(key(r))){db.rows.push(r);have.add(key(r));n++}});
     db.rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.ex===CM)-(b.ex===CM)));
     alert(n+"줄을 새로 합쳤어요. (이미 있던 "+(inc.length-n)+"줄은 건너뜀)")}
-  else{if(!confirm("지금 이 기기의 기록을 모두 지우고 파일 내용으로 바꿀까요?"))return;db.rows=inc}
+  else{if(!confirm("지금 이 기기의 기록을 모두 지우고 파일 내용으로 바꿀까요?"))return;const keep=new Set(inc.map(r=>r.id));db.rows.forEach(r=>{if(r.id&&!keep.has(r.id))db.tomb[r.id]=Date.now()});db.rows=inc}
   db.rows.forEach(r=>{if(r.ex!==CM&&r.part)db.map[r.ex]=r.part});
-  save();list();$("resCard").style.display="none"};rd.readAsText(f,"utf-8");e.target.value=""};
+  save();syncSoon();list();$("resCard").style.display="none"};rd.readAsText(f,"utf-8");e.target.value=""};
 const QUOTES=["오늘의 한 세트가 내일의 기록을 만든다.","하체를 하는 날은 성장하는 날이다.","무게는 거짓말하지 않는다. 쌓은 만큼 올라간다.","동기부여는 시작을 돕고, 습관이 끝까지 데려간다.","가장 어려운 세트는 헬스장 문을 여는 것이다.","기록하는 사람은 정체기를 이겨낸다.","어제의 나보다 1회만 더.","컨디션이 안 좋아도 오늘 가면 이미 이긴 것이다.","큰 근육은 하루가 아니라 수백 번의 평범한 날로 만들어진다.","스쿼트 앞에서 망설이지 말고 바 아래로 들어가라.","회복도 훈련이다. 잘 먹고 잘 자라.","단백질, 오늘도 채우자.","무겁게 들기 전에 정확하게 들어라.","통증은 신호다. 욕심보다 몸의 말을 먼저 들어라.","벌크업은 인내심 싸움이다. 천천히, 그러나 꾸준히.","오늘 힘든 만큼 3월의 체력이 된다.","완벽한 날을 기다리지 말고 오늘 할 수 있는 만큼 하라.","실패하는 날도 기록하면 데이터가 된다.","강한 몸은 강한 마음에서 시작된다.","빠진 하루보다 이어간 일주일이 더 크다.","점진적 과부하, 작게라도 매주 올려라.","땀은 배신하지 않는다. 기록은 더 그렇다.","지금 드는 한 번이 다음 달의 쉬운 무게가 된다."];
 let qi=Math.floor(new Date().setHours(0,0,0,0)/86400000)%QUOTES.length;
 const showQuote=()=>{$("quote").textContent="“"+QUOTES[qi]+"”"};
 $("nq").onclick=()=>{qi=(qi+1+Math.floor(Math.random()*(QUOTES.length-1)))%QUOTES.length;showQuote()};
 showQuote();
+// ---- 구글 시트 자동 연동 ----
+db.tomb=db.tomb||{};
+const GS_CODE="// 운동 기록 앱 ↔ 이 구글 시트 자동 연동\n// 기록은 이 시트의 '기록' 탭에만 저장됩니다. 아래 비밀번호는 앱이 만들어 준 것이니 바꾸지 마세요.\nconst SECRET = \"%KEY%\";\nconst HEAD = [\"날짜\", \"운동\", \"부위\", \"무게kg\", \"세트\", \"횟수\", \"메모\", \"id\", \"수정시각\"];\nconst CM = \"코멘트·방향\";\n\nfunction doGet(e) {\n  return out({ ok: true, msg: \"운동 기록 연동이 켜져 있어요.\" });\n}\n\nfunction doPost(e) {\n  const lock = LockService.getScriptLock();\n  lock.waitLock(20000);\n  try {\n    const body = JSON.parse((e.postData && e.postData.contents) || \"{}\");\n    if (body.key !== SECRET) return out({ ok: false, error: \"비밀번호가 달라요\" });\n    const ss = SpreadsheetApp.getActiveSpreadsheet();\n    const sh = ss.getSheetByName(\"기록\") || ss.insertSheet(\"기록\");\n    const ts = ss.getSheetByName(\"삭제기록\") || ss.insertSheet(\"삭제기록\");\n    const tz = ss.getSpreadsheetTimeZone();\n\n    // 1) 시트에 있는 기록 읽기\n    const rows = {};\n    const n = sh.getLastRow() - 1;\n    const vals = n > 0 ? sh.getRange(2, 1, n, 9).getValues() : [];\n    vals.forEach(function (v) {\n      const id = String(v[7] || \"\");\n      if (!id) return;\n      rows[id] = {\n        date: v[0] instanceof Date ? Utilities.formatDate(v[0], tz, \"yyyy-MM-dd\") : String(v[0]),\n        ex: String(v[1]), part: String(v[2]), kg: String(v[3]), set: String(v[4]), rep: String(v[5]),\n        memo: String(v[6]), id: id, u: Number(v[8]) || 0\n      };\n    });\n    const tomb = {};\n    const tn = ts.getLastRow() - 1;\n    const tv = tn > 0 ? ts.getRange(2, 1, tn, 2).getValues() : [];\n    tv.forEach(function (v) { if (v[0]) tomb[String(v[0])] = Number(v[1]) || 0; });\n\n    // 2) 앱에서 온 기록 합치기 (나중에 고친 것이 이김, 지운 기록은 빼기)\n    const bt = body.tomb || {};\n    Object.keys(bt).forEach(function (k) { tomb[k] = Math.max(tomb[k] || 0, Number(bt[k]) || 0); });\n    (body.rows || []).forEach(function (r) {\n      if (!r.id) return;\n      const u = Number(r.u) || 0;\n      const o = rows[r.id];\n      if (!o || u >= o.u) {\n        rows[r.id] = {\n          date: String(r.date), ex: String(r.ex), part: String(r.part || \"\"),\n          kg: r.kg == null ? \"\" : String(r.kg), set: r.set == null ? \"\" : String(r.set),\n          rep: r.rep == null ? \"\" : String(r.rep), memo: String(r.memo || \"\"), id: String(r.id), u: u\n        };\n      }\n    });\n    const list = Object.keys(rows).map(function (k) { return rows[k]; })\n      .filter(function (r) { return !(tomb[r.id] && tomb[r.id] >= r.u); });\n    list.sort(function (a, b) {\n      if (a.date !== b.date) return a.date < b.date ? -1 : 1;\n      return (a.ex === CM ? 1 : 0) - (b.ex === CM ? 1 : 0);\n    });\n\n    // 3) 시트에 다시 쓰기\n    sh.clear();\n    const data = [HEAD].concat(list.map(function (r) { return [r.date, r.ex, r.part, r.kg, r.set, r.rep, r.memo, r.id, String(r.u)]; }));\n    sh.getRange(1, 1, data.length, 9).setNumberFormat(\"@\").setValues(data);\n    sh.setFrozenRows(1);\n    ts.clear();\n    const td = [[\"id\", \"삭제시각\"]].concat(Object.keys(tomb).map(function (k) { return [k, String(tomb[k])]; }));\n    ts.getRange(1, 1, td.length, 2).setNumberFormat(\"@\").setValues(td);\n\n    return out({ ok: true, rows: list, tomb: tomb });\n  } catch (err) {\n    return out({ ok: false, error: String(err) });\n  } finally {\n    lock.releaseLock();\n  }\n}\n\nfunction out(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\n";
+const rid=()=>"r"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function hashId(r,seen){const t=[r.date,r.ex,r.part,r.kg,r.set,r.rep,r.memo].join("|");let h=2166136261;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)}const b="h"+(h>>>0).toString(36);seen[b]=(seen[b]||0)+1;return b+"-"+seen[b]}
+function ensureIds(){const seen={};db.rows.forEach(r=>{if(r.id)return;r.id=r.ex===CM?"cm-"+r.date:hashId(r,seen);r.u=r.u||0})}
+function delDayRows(d){const t=Date.now();db.rows.filter(r=>r.date===d).forEach(r=>{if(r.id)db.tomb[r.id]=t});db.rows=db.rows.filter(r=>r.date!==d);syncSoon()}
+let syncing=false,syncT=null;
+function setSyncMsg(t){const e=$("syncMsg");if(e)e.textContent=t}
+function syncSoon(){if(!db.sync||!db.sync.url)return;clearTimeout(syncT);syncT=setTimeout(sync,1500)}
+const numN=v=>v===""||v==null?null:+v;
+async function sync(){
+  if(!db.sync||!db.sync.url)return;if(syncing){syncSoon();return}
+  syncing=true;setSyncMsg("☁️ 동기화 중…");
+  const sentAt=Date.now();
+  try{
+    ensureIds();
+    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),25000);
+    const res=await fetch(db.sync.url,{method:"POST",signal:ac.signal,body:JSON.stringify({key:db.sync.key,rows:db.rows.map(r=>({date:r.date,ex:r.ex,part:r.part||"",kg:r.kg,set:r.set,rep:r.rep,memo:r.memo||"",id:r.id,u:r.u||0})),tomb:db.tomb})});
+    const j=await res.json();clearTimeout(to);
+    if(!j.ok)throw new Error(j.error||"알 수 없는 오류");
+    const got=j.rows.map(r=>({date:String(r.date),ex:String(r.ex),part:String(r.part||""),kg:numN(r.kg),set:numN(r.set),rep:numN(r.rep),memo:String(r.memo||""),id:String(r.id),u:+r.u||0}));
+    const ids=new Set(got.map(r=>r.id));
+    const during=db.rows.filter(r=>(r.u||0)>sentAt&&!ids.has(r.id)); // 동기화하는 사이에 새로 적은 것
+    db.rows=got.concat(during);db.tomb=Object.assign({},j.tomb||{},db.tomb);
+    db.sync.last=Date.now();save();list();
+    setSyncMsg("✅ "+new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})+" 동기화됨");
+    if(during.length)syncSoon();
+  }catch(e){setSyncMsg("⚠ 동기화 실패 — 인터넷이나 주소를 확인해 주세요 ("+(e.name==="AbortError"?"응답이 너무 늦음":(e.message||e))+")")}
+  syncing=false}
+function copyText(t,btn){
+  const done=()=>{if(!btn)return;const o=btn.textContent;btn.textContent="✓ 복사됨";setTimeout(()=>{btn.textContent=o},1500)};
+  const fallback=()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done()}catch(e){alert("복사가 안 돼요. 칸 안의 글을 직접 선택해서 복사해 주세요.")}ta.remove()};
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done,fallback);else fallback()}
+function renderSync(){
+  db.sync=db.sync||{};
+  if(!db.sync.key){db.sync.key=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);save()}
+  const on=!!db.sync.url;
+  $("syncBody").innerHTML=on?`<div class="row"><span class="sync-on">연결됨</span><button id="gsNow">지금 동기화</button><button class="ghost" id="gsShare">다른 기기 연결 코드 복사</button><button class="ghost" id="gsOff">연결 끊기</button></div>
+    <div class="hint">기록을 저장·삭제하면 자동으로 구글 시트에 올라가고, 앱을 열거나 다시 볼 때마다 다른 기기의 기록을 받아와요. 구글 시트 '기록' 탭에서 표로도 볼 수 있어요.<br>다른 기기(핸드폰 등)는 "다른 기기 연결 코드 복사" → 카톡 나와의 채팅으로 보내기 → 그 기기 앱의 이 칸에서 "이미 다른 기기에서 연결했다면"에 붙여넣기.<br><b>연결 코드는 비밀번호와 같아요. 남에게 보내지 마세요.</b></div>`
+  :`<div class="hint">핸드폰·노트북 기록을 <b>내 구글 시트 하나</b>에 모아서 자동으로 맞춰요. 처음 한 번만 설정하면 돼요(약 5분). 기록은 내 구글 계정의 시트에만 저장돼요.</div>
+    <ol class="steps">
+      <li><a href="https://sheets.new" target="_blank" rel="noopener">여기를 눌러 새 구글 시트</a>를 만들고, 왼쪽 위 이름을 "운동기록"으로 바꿔요.</li>
+      <li>시트 위쪽 메뉴에서 <b>확장 프로그램 → Apps Script</b>를 눌러요.</li>
+      <li>열린 화면의 글을 <b>모두 지우고</b>, 아래 <b>[코드 복사]</b>를 눌러 붙여넣은 뒤 💾(저장)을 눌러요.</li>
+      <li>오른쪽 위 <b>배포 → 새 배포</b> → 톱니바퀴 ⚙에서 <b>웹 앱</b> → "액세스 권한이 있는 사용자"를 <b>모든 사용자</b>로 → <b>배포</b>.<br>
+        권한 요청이 나오면: 내 계정 선택 → <b>고급</b> → <b>(안전하지 않음)으로 이동</b> → <b>허용</b>. (내가 붙여넣은 코드라서 이렇게 나와요)</li>
+      <li>마지막에 나오는 <b>웹 앱 URL</b>을 복사해서 아래 칸에 붙여넣고 <b>[연결]</b>을 눌러요.</li>
+    </ol>
+    <textarea id="gsCode" readonly></textarea>
+    <div class="row" style="margin-top:6px"><button id="gsCopy">코드 복사</button></div>
+    <div class="row"><input id="gsUrl" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1"><button id="gsConnect">연결</button></div>
+    <details><summary class="hint">이미 다른 기기에서 연결했다면 (연결 코드 붙여넣기)</summary>
+      <div class="row" style="margin-top:6px"><input id="gsJoinIn" placeholder="다른 기기에서 복사한 연결 코드" style="flex:1"><button id="gsJoin">연결</button></div></details>`;
+  if(on){
+    if(!$("syncMsg").textContent)setSyncMsg(db.sync.last?"마지막 동기화: "+new Date(db.sync.last).toLocaleString("ko-KR"):"");
+    $("gsNow").onclick=()=>sync();
+    $("gsShare").onclick=e=>copyText(db.sync.url+"|"+db.sync.key,e.target);
+    $("gsOff").onclick=()=>{if(confirm("이 기기의 연동을 끊을까요? (기록과 구글 시트는 그대로 남아요)")){delete db.sync.url;save();setSyncMsg("");renderSync()}};
+  }else{
+    $("gsCode").value=GS_CODE.replace("%KEY%",db.sync.key);
+    $("gsCopy").onclick=e=>copyText($("gsCode").value,e.target);
+    $("gsConnect").onclick=()=>{const u=$("gsUrl").value.trim();if(!/^https?:\/\/\S+$/.test(u)){alert("웹 앱 URL을 붙여넣어 주세요.");return}
+      if(!/script\.google\.com/.test(u)&&!confirm("구글 Apps Script 주소가 아닌 것 같아요. 그래도 연결할까요?"))return;
+      db.sync.url=u;save();renderSync();sync()};
+    $("gsJoin").onclick=()=>{const c=$("gsJoinIn").value.trim(),k=c.lastIndexOf("|");if(k<8){alert("연결 코드가 아니에요. 다른 기기에서 '다른 기기 연결 코드 복사'를 눌러 받은 글을 붙여넣어 주세요.");return}
+      db.sync.url=c.slice(0,k);db.sync.key=c.slice(k+1);save();renderSync();sync()};
+  }}
 // ---- 예전 기록 가져오기(한 번만) + 부위 새 분류로 정리 ----
 const SEED=[];
 const cvCm=t=>String(t).split(/\s*[123]\)\s*/).map(x=>x.trim()).filter(Boolean).slice(0,3).join("\n");
@@ -448,7 +526,7 @@ if(!db.seed2){
     db.rows.push({date:r[0],ex,part:r[2]?newPart(r[2],ex):"",kg:num(r[3]),set:num(r[4]),rep:num(r[5]),memo:r[6]||""})});
   db.seed2=1;
   db.rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.ex===CM)-(b.ex===CM)))}
-migrate();save();
+migrate();ensureIds();save();
 
 // ---- 운동 고르기 ----
 const CAT_EX={
@@ -549,6 +627,8 @@ const renderPicker0=renderPicker;renderPicker=function(){renderPicker0();renderS
 renderPicker();
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){} // 기록이 자동으로 지워지지 않게 요청
 if(location.protocol.startsWith("http")){const l=document.createElement("link");l.rel="manifest";l.href="manifest.webmanifest";document.head.appendChild(l);if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}
+renderSync();if(db.sync.url)sync();
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncSoon()});
 $("date").value=fmt(new Date());
 list();
 </script>
