@@ -1,5 +1,5 @@
 // 인터넷이 끊겨도 앱이 열리도록 파일을 저장해 두는 작은 도우미
-const CACHE = "workout-v1";
+const CACHE = "workout-v2";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -15,8 +15,10 @@ self.addEventListener("activate", e => {
 // 새 버전을 먼저 받고, 인터넷이 없으면 저장해 둔 것을 씀
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+  // 같은 사이트 파일은 항상 새 버전을 확인(옛 화면이 남지 않게)
+  const same = new URL(e.request.url).origin === location.origin;
   e.respondWith(
-    fetch(e.request)
+    (same ? fetch(e.request.url, { cache: "no-cache" }) : fetch(e.request))
       .then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
       .catch(() => caches.match(e.request))
   );

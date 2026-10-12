@@ -481,6 +481,7 @@ function copyText(t,btn){
 const DEFAULT_SYNC={"url":"","key":""};
 function renderSync(){
   db.sync=db.sync||{};
+  if(db.sync.url&&db.sync.url.includes("|")){const c=db.sync.url.replace(/\s+/g,""),k=c.lastIndexOf("|");db.sync.url=c.slice(0,k);db.sync.key=c.slice(k+1);save()} // 연결 코드를 주소 칸에 넣었던 경우 자동 수리
   if(!db.sync.url&&!db.sync.off&&DEFAULT_SYNC.url){db.sync.url=DEFAULT_SYNC.url;db.sync.key=DEFAULT_SYNC.key;save()}
   if(!db.sync.key){db.sync.key=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);save()}
   const on=!!db.sync.url;
