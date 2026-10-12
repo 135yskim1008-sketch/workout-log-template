@@ -519,6 +519,7 @@ function renderSum(){
   $("psum").innerHTML=draft.length?'<span class="hint">부위별 본세트 </span>'+Object.keys(by).map(p=>`<span class="pchip" style="--c:${pc(p)}">${esc(p)} ${p==="러닝"||p==="유산소"?(km?km+"km":"✓"):by[p]+"세트"}</span>`).join(""):""}
 const renderPicker0=renderPicker;renderPicker=function(){renderPicker0();renderSum()};
 renderPicker();
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){} // 기록이 자동으로 지워지지 않게 요청
 if(location.protocol.startsWith("http")){const l=document.createElement("link");l.rel="manifest";l.href="manifest.webmanifest";document.head.appendChild(l);if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}
 $("date").value=fmt(new Date());
 list();
