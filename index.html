@@ -91,6 +91,12 @@ td b{font-weight:700}
 .ln.w{border:1px dashed #d97706}
 .ln.c{border:1px dashed #0284c7}
 textarea.memo{width:100%;min-height:54px;margin-top:10px;font-size:15px;background:var(--card);line-height:1.5}
+.etc{grid-column:1/-1;display:flex;gap:8px}
+.etc input{flex:1;font-size:16px;background:var(--card);border:2px solid var(--c)}
+.exs .etc button{border:0;background:var(--c);color:#fff;text-align:center;padding:10px 18px;font-weight:700}
+.exs button.mine{border-style:dashed;border-left-style:solid}
+.exs button.etcb{border:2px dashed var(--c);color:var(--c);background:transparent;text-align:center;font-weight:700}
+.bwtag{display:inline-block;padding:7px 12px;border-radius:9px;background:var(--c);color:#fff;font-weight:700;font-size:14px}
 pre{white-space:pre-wrap;word-break:break-all;font-size:13px;max-height:260px;overflow:auto;background:var(--bg);padding:10px;border-radius:8px}
 </style>
 </head>
@@ -141,11 +147,11 @@ pre{white-space:pre-wrap;word-break:break-all;font-size:13px;max-height:260px;ov
 <div class="card">
   <h2>workout_log.csv</h2>
   <div class="row">
-    <button id="dl">CSV 내려받기</button>
-    <button class="ghost" id="up">CSV 불러오기</button>
+    <button id="dl">CSV 내려받기 (백업·옮기기)</button>
+    <button class="ghost" id="up">CSV 불러오기 (합치기)</button>
     <input type="file" id="file" accept=".csv" style="display:none">
   </div>
-  <div class="hint">기록은 이 컴퓨터의 브라우저에 자동 저장돼요. 가끔 "CSV 내려받기"로 파일을 따로 보관해 두면 안전해요. 열: 날짜, 운동, 부위, 무게kg, 세트, 횟수, 메모</div>
+  <div class="hint">기록은 이 기기의 브라우저에만 저장돼요. 핸드폰↔노트북 기록을 맞추려면: 한쪽에서 "CSV 내려받기" → 그 파일을 카톡 나에게 보내기 등으로 옮김 → 다른 쪽에서 "CSV 불러오기"(합치기). 열: 날짜, 운동, 부위, 무게kg, 세트, 횟수, 메모</div>
   <details style="margin-top:8px"><summary class="hint">CSV 내용 미리보기</summary><pre id="csvPre"></pre></details>
 </div>
 </div>
@@ -162,10 +168,10 @@ const addDays=(s,n)=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);r
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LOWER=["하체"];
 const PRIORITY=""; // 우선 키우는 부위(없으면 "")
-const PC={"가슴":"#e5484d","등":"#3b82f6","하체":"#16a34a","어깨":"#f59e0b","이두":"#9b5de5","삼두":"#e0479e","복근":"#0fa3a3","러닝":"#64748b","유산소":"#64748b"};
+const PC={"가슴":"#e5484d","등":"#3b82f6","하체":"#16a34a","어깨":"#f59e0b","이두":"#9b5de5","삼두":"#e0479e","복근":"#0fa3a3","맨몸":"#8b5e3c","러닝":"#64748b","유산소":"#64748b"};
 const pc=p=>PC[p]||"#94a3b8";
 const chipP=p=>p?`<span class="pchip" style="--c:${pc(p)}">${esc(p)}</span>`:"";
-const PARTS=["가슴","등","하체","어깨","이두","삼두","복근","러닝","유산소"];
+const PARTS=["가슴","등","하체","어깨","이두","삼두","복근","맨몸","러닝","유산소"];
 const RULES=[
  [/러닝|런닝|달리기|조깅/,"러닝"],
  [/사이클|자전거|걷기|수영|로잉|트레드밀|스텝밀/,"유산소"],
@@ -411,9 +417,14 @@ $("dl").onclick=()=>{const b=new Blob(["﻿"+toCSV()],{type:"text/csv;charset=ut
 $("up").onclick=()=>$("file").click();
 $("file").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{
   const rs=parseCSV(rd.result);if(rs.length<2){alert("읽을 내용이 없어요.");return}
-  if(!confirm("지금 기록을 이 파일 내용으로 바꿀까요? ("+(rs.length-1)+"줄)"))return;
   const num=v=>v===""||v==null?null:parseFloat(v);
-  db.rows=rs.slice(1).map(c=>({date:c[0],ex:c[1],part:c[2]||"",kg:num(c[3]),set:num(c[4]),rep:num(c[5]),memo:c[6]||""}));
+  const inc=rs.slice(1).map(c=>({date:c[0],ex:aliasName(c[1]),part:c[2]?newPart(c[2],aliasName(c[1])):"",kg:num(c[3]),set:num(c[4]),rep:num(c[5]),memo:c[6]||""}));
+  if(confirm("불러온 "+inc.length+"줄을 지금 기록과 합칠까요?\n\n[확인] 합치기 — 겹치는 기록은 한 번만 남겨요 (핸드폰↔노트북 옮길 때)\n[취소] 합치지 않기 — 다음 질문에서 '전부 바꾸기'를 고를 수 있어요")){
+    const key=r=>[r.date,r.ex,r.kg,r.set,r.rep,r.memo].join("|");const have=new Set(db.rows.map(key));let n=0;
+    inc.forEach(r=>{if(r.ex===CM&&db.rows.some(x=>x.date===r.date&&x.ex===CM))return;if(!have.has(key(r))){db.rows.push(r);have.add(key(r));n++}});
+    db.rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.ex===CM)-(b.ex===CM)));
+    alert(n+"줄을 새로 합쳤어요. (이미 있던 "+(inc.length-n)+"줄은 건너뜀)")}
+  else{if(!confirm("지금 이 기기의 기록을 모두 지우고 파일 내용으로 바꿀까요?"))return;db.rows=inc}
   db.rows.forEach(r=>{if(r.ex!==CM&&r.part)db.map[r.ex]=r.part});
   save();list();$("resCard").style.display="none"};rd.readAsText(f,"utf-8");e.target.value=""};
 const QUOTES=["오늘의 한 세트가 내일의 기록을 만든다.","하체를 하는 날은 성장하는 날이다.","무게는 거짓말하지 않는다. 쌓은 만큼 올라간다.","동기부여는 시작을 돕고, 습관이 끝까지 데려간다.","가장 어려운 세트는 헬스장 문을 여는 것이다.","기록하는 사람은 정체기를 이겨낸다.","어제의 나보다 1회만 더.","컨디션이 안 좋아도 오늘 가면 이미 이긴 것이다.","큰 근육은 하루가 아니라 수백 번의 평범한 날로 만들어진다.","스쿼트 앞에서 망설이지 말고 바 아래로 들어가라.","회복도 훈련이다. 잘 먹고 잘 자라.","단백질, 오늘도 채우자.","무겁게 들기 전에 정확하게 들어라.","통증은 신호다. 욕심보다 몸의 말을 먼저 들어라.","벌크업은 인내심 싸움이다. 천천히, 그러나 꾸준히.","오늘 힘든 만큼 3월의 체력이 된다.","완벽한 날을 기다리지 말고 오늘 할 수 있는 만큼 하라.","실패하는 날도 기록하면 데이터가 된다.","강한 몸은 강한 마음에서 시작된다.","빠진 하루보다 이어간 일주일이 더 크다.","점진적 과부하, 작게라도 매주 올려라.","땀은 배신하지 않는다. 기록은 더 그렇다.","지금 드는 한 번이 다음 달의 쉬운 무게가 된다."];
@@ -448,10 +459,12 @@ const CAT_EX={
 "이두":["프리처컬","해머컬","바벨컬","덤벨컬","EZ바컬","인클라인 덤벨컬","케이블 컬","와이드 그립 이두컬"],
 "삼두":["라잉 트라이셉스 익스텐션","케이블 푸쉬다운","덤벨 오버헤드 익스텐션","트라이셉스 킥백","체어딥스","딥스","스컬크러셔","삼두 푸쉬업"],
 "복근":["레그레이즈","행잉 레그레이즈","사이드 레그레이즈","플랭크","크런치","사이드 크런치","에어바이시클","니업"],
+"맨몸":[],
 "러닝":["러닝"]};
 const CATS=Object.keys(CAT_EX);
 const PLAN={};
-let curCat="가슴",draft=Array.isArray(db.draft)?db.draft:[];
+db.customEx=db.customEx||{};
+let curCat="가슴",openEtc="",draft=Array.isArray(db.draft)?db.draft:[];
 const persist=()=>{db.draft=draft;save()};
 function lastOf(n){
   const rs=db.rows.filter(r=>r.ex===n&&r.part&&!isWarm(r));
@@ -461,7 +474,8 @@ function lastOf(n){
 function addPick(ex,cat){
   if(cat==="러닝"){draft.push({ex,cat,cardio:1,dist:"",min:""});return}
   const l=lastOf(ex),pl=PLAN[ex]||{};
-  draft.push({ex,cat,last:l,lines:[{kg:l?l.kg:(pl.kg||(BW.test(ex)?0:20)),set:pl.set||(l?l.set:3),rep:pl.rep||(l?l.rep:10),kind:""}]})}
+  const bw=cat==="맨몸";
+  draft.push({ex,cat,bw,last:l,lines:[{kg:bw?0:(l?l.kg:(pl.kg||(BW.test(ex)?0:20))),set:pl.set||(l?l.set:3),rep:pl.rep||(l?l.rep:10),kind:""}]})}
 const BW=/풀업|친업|딥스|푸쉬업|푸시업|플랭크|크런치|레그레이즈|니업|에어바이시클/; // 맨몸 운동은 0kg부터
 const STEP={kg:2.5,set:1,rep:1,dist:0.5,min:1},MINV={kg:0,set:1,rep:1,dist:0,min:0};
 const r10=v=>Math.round(v*10)/10;
@@ -471,14 +485,28 @@ function stepper(label,i,j,f,v,unit){
 function renderPicker(){
   $("cats").innerHTML=CATS.map(c=>{const n=draft.filter(d=>d.cat===c).length;return `<button class="${c===curCat?"on":""}" data-c="${c}" style="--c:${pc(c)}">${c}${n?` <b>${n}</b>`:""}</button>`}).join("");
   $("exs").style.setProperty("--c",pc(curCat));
-  $("exs").innerHTML=CAT_EX[curCat].map(n=>`<button class="${draft.some(d=>d.ex===n)?"sel":""}" data-e="${esc(n)}">${esc(n)}</button>`).join("");
+  const mine=(db.customEx[curCat]||[]);
+  const list=CAT_EX[curCat].concat(mine.filter(n=>!CAT_EX[curCat].includes(n)));
+  const typing=curCat==="맨몸"||openEtc===curCat;
+  $("exs").innerHTML=(typing?`<div class="etc"><input id="etcIn" placeholder="${curCat==="맨몸"?"맨몸 운동 이름 적기 (예: 버피, 푸쉬업, 턱걸이)":curCat+" 운동 중 목록에 없는 것 적기"}"><button id="etcAdd">추가</button></div>`:"")
+    +list.map(n=>`<button class="${draft.some(d=>d.ex===n)?"sel":""}${mine.includes(n)?" mine":""}" data-e="${esc(n)}">${esc(n)}</button>`).join("")
+    +(curCat!=="맨몸"&&curCat!=="러닝"?`<button class="etcb" data-etc="1">${openEtc===curCat?"✕ 닫기":"＋ 기타 (직접 적기)"}</button>`:"")
+    +(curCat==="맨몸"&&!list.length?'<div class="hint" style="grid-column:1/-1">적은 운동은 다음부터 여기에 버튼으로 남아요. 세트·횟수는 오른쪽에서 조절해요.</div>':"");
   $("picked").innerHTML=draft.length?draft.map((d,i)=>{
-    const head=`<div style="display:flex;justify-content:space-between;gap:8px"><span><span class="nm">${esc(d.ex)}</span> ${chipP(d.cat)}${d.last?`<div class="hint">지난번(${d.last.date.slice(5)}): ${d.last.kg?d.last.kg+"kg ":""}${d.last.rep}회 · 그날 ${d.last.set}세트</div>`:""}${PLAN[d.ex]?`<div class="hint">내 계획: ${PLAN[d.ex].set}세트</div>`:""}</span><button class="ghost" data-rm="${i}">✕</button></div>`;
-    if(d.cardio)return `<div class="sl" style="--c:${pc(d.cat)}">${head}<div class="ln">${stepper("거리",i,"-","dist",d.dist,"km")}${stepper("시간",i,"-","min",d.min,"분")}</div><textarea class="memo" data-m="${i}" rows="2" placeholder="메모 (예: 2세트부터 엉덩이가 빠짐, 웜업이 셌나?)">${esc(d.memo||"")}</textarea></div>`;
-    return `<div class="sl" style="--c:${pc(d.cat)}">${head}${d.lines.map((l,j)=>`<div class="ln ${l.kind==="웜업"?"w":l.kind==="쿨다운"?"c":""}">${stepper("무게",i,j,"kg",l.kg,"kg")}${stepper("세트",i,j,"set",l.set,"")}${stepper("횟수",i,j,"rep",l.rep,"")}<span class="seg">${[["웜업","웜업","k-w"],["","본세트","k-m"],["쿨다운","쿨다운","k-c"]].map(k=>`<button class="${k[2]}${(l.kind||"")===k[0]?" on":""}" data-kd="${i}:${j}:${k[0]}">${k[1]}</button>`).join("")}</span>${d.lines.length>1?`<button class="ghost" data-dl="${i}:${j}">✕</button>`:""}</div>`).join("")}<button class="ghost" data-al="${i}" style="margin-top:8px;padding:6px 12px">＋ 다른 무게/횟수 줄 추가</button><textarea class="memo" data-m="${i}" rows="2" placeholder="메모 (예: 2세트부터 엉덩이가 빠짐, 웜업이 셌나?)">${esc(d.memo||"")}</textarea></div>`}).join(""):'<div class="hint" style="padding:12px 0">왼쪽에서 운동을 누르면 여기에 담겨요.<br>무게 0은 맨몸 운동(풀업·딥스 등)으로 기록돼요.</div>'}
+    const head=`<div style="display:flex;justify-content:space-between;gap:8px"><span><span class="nm">${esc(d.ex)}</span> ${chipP(d.cat)}${d.bw&&ruleOnly(d.ex)?chipP(ruleOnly(d.ex)):""}${d.last?`<div class="hint">지난번(${d.last.date.slice(5)}): ${d.last.kg?d.last.kg+"kg ":""}${d.last.rep}회 · 그날 ${d.last.set}세트</div>`:""}${PLAN[d.ex]?`<div class="hint">내 계획: ${PLAN[d.ex].set}세트</div>`:""}</span><button class="ghost" data-rm="${i}">✕</button></div>`;
+    if(d.cardio)return `<div class="sl" style="--c:${pc(d.cat)}">${head}<div class="ln">${stepper("거리",i,"-","dist",d.dist,"km")}${stepper("시간",i,"-","min",d.min,"분")}</div><textarea class="memo" data-m="${i}" rows="2" placeholder="메모 (예: 페이스, 컨디션)">${esc(d.memo||"")}</textarea></div>`;
+    return `<div class="sl" style="--c:${pc(d.cat)}">${head}${d.lines.map((l,j)=>`<div class="ln ${l.kind==="웜업"?"w":l.kind==="쿨다운"?"c":""}">${d.bw?'<span class="bwtag">맨몸</span>':stepper("무게",i,j,"kg",l.kg,"kg")}${stepper("세트",i,j,"set",l.set,"")}${stepper("횟수",i,j,"rep",l.rep,"")}<span class="seg">${[["웜업","웜업","k-w"],["","본세트","k-m"],["쿨다운","쿨다운","k-c"]].map(k=>`<button class="${k[2]}${(l.kind||"")===k[0]?" on":""}" data-kd="${i}:${j}:${k[0]}">${k[1]}</button>`).join("")}</span>${d.lines.length>1?`<button class="ghost" data-dl="${i}:${j}">✕</button>`:""}</div>`).join("")}<button class="ghost" data-al="${i}" style="margin-top:8px;padding:6px 12px">${d.bw?"＋ 다른 횟수 줄 추가":"＋ 다른 무게/횟수 줄 추가"}</button><textarea class="memo" data-m="${i}" rows="2" placeholder="메모 (예: 2세트부터 엉덩이가 빠짐, 웜업이 셌나?)">${esc(d.memo||"")}</textarea></div>`}).join(""):'<div class="hint" style="padding:12px 0">왼쪽에서 운동을 누르면 여기에 담겨요.<br>무게 0은 맨몸 운동(풀업·딥스 등)으로 기록돼요.</div>'}
 $("cats").onclick=e=>{const b=e.target.closest("button");if(!b)return;curCat=b.dataset.c;renderPicker()};
+function addTyped(){const i=$("etcIn");const n=aliasName(i?i.value:"");if(!n){if(i)i.focus();return}
+  const L=(db.customEx[curCat]=db.customEx[curCat]||[]);
+  if(!L.includes(n)&&!CAT_EX[curCat].includes(n))L.push(n);
+  if(!draft.some(d=>d.ex===n))addPick(n,curCat);
+  persist();renderPicker();const j=$("etcIn");if(j){j.value="";j.focus()}}
+$("exs").onkeydown=e=>{if(e.target.id==="etcIn"&&e.key==="Enter"){e.preventDefault();addTyped()}};
 $("exs").onclick=e=>{const b=e.target.closest("button");if(!b)return;
-  const n=b.dataset.e,k=draft.findIndex(d=>d.ex===n);
+  if(b.dataset.etc){openEtc=openEtc===curCat?"":curCat;renderPicker();const i=$("etcIn");if(i)i.focus();return}
+  if(b.id==="etcAdd"){addTyped();return}
+  const n=b.dataset.e;if(n==null)return;const k=draft.findIndex(d=>d.ex===n);
   if(k>=0)draft.splice(k,1);else addPick(n,curCat);
   persist();renderPicker()};
 $("picked").onclick=e=>{const b=e.target.closest("button");if(!b)return;const D=b.dataset;
@@ -504,7 +532,7 @@ $("pickSave").onclick=()=>{
   draft.forEach(d=>{
     const memo=(d.memo||"").replace(/\n+/g," ").trim();
     if(d.cardio){lines.push(d.ex+(d.dist?" "+d.dist+"km":"")+(d.min?" "+d.min+"분":"")+(memo?" # "+memo:""));return}
-    parts[d.ex]=d.cat;
+    parts[d.ex]=d.bw?(ruleOnly(d.ex)||"맨몸"):d.cat;
     let mi=d.lines.findIndex(l=>!l.kind);if(mi<0)mi=0;
     d.lines.forEach((l,j)=>lines.push((j===0?d.ex+" ":"")+(+l.kg||0)+"x"+(l.rep||1)+"x"+(l.set||1)+(l.kind||"")+(j===mi&&memo?" # "+memo:"")))});
   const r=addEntries(date,lines.join("\n"),parts,{exact:1});
